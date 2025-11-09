@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         [v-cloak] { display: none; }
     </style>
@@ -51,6 +52,7 @@
                     </div>
                 </div>
             </div>
+
             <div class="max-w-7xl mx-auto px-4 py-8">
                 <!-- 統計卡片 -->
                 <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
@@ -118,13 +120,13 @@
                 <!-- 標籤頁導航 -->
                 <div class="bg-white rounded-xl shadow-lg mb-8">
                     <div class="border-b border-gray-200">
-                        <nav class="flex -mb-px">
+                        <nav class="flex -mb-px overflow-x-auto">
                             <button 
                                 v-for="tab in visibleTabs" 
                                 :key="tab.id"
                                 @click="currentTab = tab.id"
                                 :class="currentTab === tab.id ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                                class="py-4 px-6 border-b-2 font-semibold text-sm flex items-center space-x-2 transition">
+                                class="py-4 px-6 border-b-2 font-semibold text-sm flex items-center space-x-2 transition whitespace-nowrap">
                                 <span v-html="tab.icon"></span>
                                 <span>{{ tab.name }}</span>
                             </button>
@@ -132,10 +134,10 @@
                     </div>
 
                     <div class="p-6">
-                        <!-- 投票記錄（只有 K18251 可見） -->
+                        <!-- 投票記錄(只有 K18251 可見) -->
                         <div v-if="currentTab === 'votes' && isAdmin" class="space-y-4">
                             <div class="flex items-center justify-between mb-4">
-                                <h2 class="text-2xl font-bold text-gray-800">完整投票記錄（誰投給誰）</h2>
+                                <h2 class="text-2xl font-bold text-gray-800">完整投票記錄(誰投給誰)</h2>
                                 <button @click="exportVotes" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-semibold transition">
                                     <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -249,7 +251,7 @@
                                                     ✓ 可投票
                                                 </span>
                                                 <span v-else class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-bold">
-                                                    ⏳ 7天內已投
+                                                    ⏳ 本週已達配額
                                                 </span>
                                             </td>
                                             <td class="px-4 py-4 text-sm text-gray-500">
@@ -261,10 +263,83 @@
                             </div>
                         </div>
 
+                        <!-- 每週趨勢 - 新分頁 -->
+                        <div v-if="currentTab === 'weekly'">
+                            <h2 class="text-2xl font-bold text-gray-800 mb-6">📊 每週參與率趨勢</h2>
+                            
+                            <!-- 每週參與率圖表 -->
+                            <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 shadow-lg mb-8">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                                        <svg class="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                                        </svg>
+                                        每週參與率趨勢
+                                    </h3>
+                                    <div class="flex items-center space-x-3">
+                                        <!-- 週數選擇器 -->
+                                        <div class="flex items-center space-x-2">
+                                            <label class="text-sm font-semibold text-gray-700">查詢週數:</label>
+                                            <select 
+                                                v-model="weeksToShow" 
+                                                @change="loadWeeklyStats"
+                                                class="px-3 py-2 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:outline-none font-semibold text-sm bg-white">
+                                                <option :value="4">近 4 週</option>
+                                                <option :value="8">近 8 週</option>
+                                                <option :value="12">近 12 週</option>
+                                                <option :value="16">近 16 週</option>
+                                                <option :value="20">近 20 週</option>
+                                                <option :value="24">近 24 週</option>
+                                            </select>
+                                        </div>
+                                        <button @click="refreshWeeklyStats" :disabled="isLoadingWeeklyStats" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                                            <svg class="w-4 h-4 inline mr-1" :class="{'animate-spin': isLoadingWeeklyStats}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                            </svg>
+                                            {{ isLoadingWeeklyStats ? '載入中...' : '刷新數據' }}
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 參與率統計標籤 -->
+                                <div class="grid grid-cols-3 gap-4 mb-4">
+                                    <div class="bg-white rounded-lg p-3 shadow">
+                                        <p class="text-xs text-gray-500 font-semibold mb-1">RR 平均參與</p>
+                                        <p class="text-2xl font-bold text-red-600">{{ weeklyStatsLabel.rr_avg }}%</p>
+                                        <p class="text-xs text-gray-500 mt-1">平均 {{ weeklyStatsLabel.rr_votes }} 票</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-3 shadow">
+                                        <p class="text-xs text-gray-500 font-semibold mb-1">輪班 平均參與</p>
+                                        <p class="text-2xl font-bold text-blue-600">{{ weeklyStatsLabel.shift_avg }}%</p>
+                                        <p class="text-xs text-gray-500 mt-1">平均 {{ weeklyStatsLabel.shift_votes }} 票</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-3 shadow">
+                                        <p class="text-xs text-gray-500 font-semibold mb-1">總平均參與</p>
+                                        <p class="text-2xl font-bold text-purple-600">{{ weeklyStatsLabel.total_avg }}%</p>
+                                        <p class="text-xs text-gray-500 mt-1">平均 {{ weeklyStatsLabel.total_votes }} 票</p>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white rounded-lg p-6 relative">
+                                    <!-- 加載指示器 -->
+                                    <div v-if="isLoadingWeeklyStats" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
+                                        <div class="text-center">
+                                            <svg class="animate-spin h-12 w-12 text-indigo-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <p class="text-gray-600 font-semibold">載入中...</p>
+                                        </div>
+                                    </div>
+                                    <canvas id="weeklyChart" style="height: 500px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- 統計分析 -->
                         <div v-if="currentTab === 'statistics'">
                             <h2 class="text-2xl font-bold text-gray-800 mb-6">統計分析</h2>
-                            
+
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <!-- RR 排行榜 -->
                                 <div class="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-6 shadow-lg">
@@ -336,11 +411,75 @@
                             </div>
                         </div>
 
-                        <!-- 系統管理（只有 K18251 可見） -->
+                        <!-- 系統管理(只有 K18251 可見) -->
                         <div v-if="currentTab === 'system' && isAdmin">
                             <h2 class="text-2xl font-bold text-gray-800 mb-6">系統管理</h2>
                             
                             <div class="space-y-6">
+                                <!-- 配額管理 -->
+                                <div class="bg-purple-50 border-l-4 border-purple-500 p-6 rounded-lg">
+                                    <div class="flex items-start">
+                                        <svg class="w-6 h-6 text-purple-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <h3 class="font-bold text-purple-900 mb-2">每週投票配額管理</h3>
+                                            <p class="text-purple-800 mb-4">設定每位員工每週可投票的次數(1-10票)</p>
+                                            
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                <!-- RR 配額 -->
+                                                <div class="bg-white rounded-lg p-4 shadow">
+                                                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                                                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs mr-2">RR</span>
+                                                        每週投票配額
+                                                    </label>
+                                                    <div class="flex items-center space-x-3">
+                                                        <input 
+                                                            type="number" 
+                                                            v-model.number="quotas.rr"
+                                                            min="1"
+                                                            max="10"
+                                                            class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none font-bold text-lg text-center">
+                                                        <span class="text-gray-600 font-semibold">票/週</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- 輪班配額 -->
+                                                <div class="bg-white rounded-lg p-4 shadow">
+                                                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">輪班</span>
+                                                        每週投票配額
+                                                    </label>
+                                                    <div class="flex items-center space-x-3">
+                                                        <input 
+                                                            type="number" 
+                                                            v-model.number="quotas.shift"
+                                                            min="1"
+                                                            max="10"
+                                                            class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none font-bold text-lg text-center">
+                                                        <span class="text-gray-600 font-semibold">票/週</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex space-x-3">
+                                                <button @click="saveQuotas" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-bold transition">
+                                                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                                                    </svg>
+                                                    儲存配額設定
+                                                </button>
+                                                <button @click="reloadQuotas" class="bg-white border-2 border-purple-600 text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-lg font-bold transition">
+                                                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                                    </svg>
+                                                    重新載入
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-lg">
                                     <div class="flex items-start">
                                         <svg class="w-6 h-6 text-yellow-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -348,7 +487,7 @@
                                         </svg>
                                         <div>
                                             <h3 class="font-bold text-yellow-900 mb-2">重置投票記錄</h3>
-                                            <p class="text-yellow-800 mb-4">只清除投票記錄，保留7天投票限制（員工仍需等待7天才能再投）</p>
+                                            <p class="text-yellow-800 mb-4">只清除投票記錄,保留每週配額限制</p>
                                             <button @click="resetSystem('votes_only')" class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg font-bold transition">
                                                 <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -366,7 +505,7 @@
                                         </svg>
                                         <div>
                                             <h3 class="font-bold text-red-900 mb-2">完全重置系統</h3>
-                                            <p class="text-red-800 mb-4">⚠️ 清除所有投票記錄和時間限制，所有員工立即可以再次投票</p>
+                                            <p class="text-red-800 mb-4">⚠️ 清除所有投票記錄和每週投票追蹤,所有員工立即可以再次投票</p>
                                             <button @click="resetSystem('full_reset')" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-bold transition">
                                                 <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -384,7 +523,7 @@
                                         </svg>
                                         <div>
                                             <h3 class="font-bold text-blue-900 mb-2">重新載入員工資料</h3>
-                                            <p class="text-blue-800 mb-4">⚠️ 從 emoinfo.json 重新載入員工資料，並清除所有投票記錄</p>
+                                            <p class="text-blue-800 mb-4">⚠️ 從 emoinfo.json 重新載入員工資料,並清除所有投票記錄</p>
                                             <button @click="reloadEmployees" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold transition">
                                                 <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
@@ -401,392 +540,8 @@
             </div>
         </div>
     </div>
-    <script>
-        const { createApp } = Vue;
-
-        createApp({
-            data() {
-                return {
-                    isLoggedIn: false,
-                    loginEmpId: '',
-                    loginError: '',
-                    currentAdmin: null,
-                    isAdmin: false,
-                    currentTab: 'employees',
-                    statistics: {
-                        total_employees: 0,
-                        voted_count: 0,
-                        pending_count: 0,
-                        vote_rate: 0,
-                        recent_votes: 0
-                    },
-                    votes: [],
-                    employees: [],
-                    voteSearch: '',
-                    employeeSearch: '',
-                    allTabs: [
-                        { 
-                            id: 'votes', 
-                            name: '投票記錄', 
-                            icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>', 
-                            adminOnly: true 
-                        },
-                        { 
-                            id: 'employees', 
-                            name: '員工列表', 
-                            icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>', 
-                            adminOnly: false 
-                        },
-                        { 
-                            id: 'statistics', 
-                            name: '統計分析', 
-                            icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>', 
-                            adminOnly: false 
-                        },
-                        { 
-                            id: 'system', 
-                            name: '系統管理', 
-                            icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>', 
-                            adminOnly: true 
-                        }
-                    ]
-                }
-            },
-            computed: {
-                visibleTabs() {
-                    return this.allTabs.filter(tab => !tab.adminOnly || this.isAdmin);
-                },
-                filteredVotes() {
-                    const search = this.voteSearch.toLowerCase();
-                    return this.votes.filter(vote => 
-                        vote.voter_name.toLowerCase().includes(search) ||
-                        vote.voter_emp_id.toLowerCase().includes(search) ||
-                        vote.voted_for_name.toLowerCase().includes(search) ||
-                        vote.voted_for_emp_id.toLowerCase().includes(search)
-                    );
-                },
-                filteredEmployees() {
-                    const search = this.employeeSearch.toLowerCase();
-                    return this.employees.filter(emp =>
-                        emp.name.toLowerCase().includes(search) ||
-                        emp.emp_id.toLowerCase().includes(search)
-                    );
-                },
-                rrRanking() {
-                    return this.statistics.vote_stats
-                        ?.filter(s => s.shift_type === 'RR')
-                        .sort((a, b) => b.vote_count - a.vote_count) || [];
-                },
-                shiftRanking() {
-                    return this.statistics.vote_stats
-                        ?.filter(s => s.shift_type === '輪班')
-                        .sort((a, b) => b.vote_count - a.vote_count)
-                        .slice(0, 10) || [];
-                }
-            },
-            async mounted() {
-                // 檢查 URL 是否有 emp_id 參數
-                const urlParams = new URLSearchParams(window.location.search);
-                const empId = urlParams.get('emp_id');
-                
-                if (!empId) {
-                    // 如果沒有工號參數，跳轉回投票系統
-                    Swal.fire({
-                        title: '錯誤',
-                        text: '請從投票系統進入',
-                        icon: 'error',
-                        confirmButtonColor: '#4F46E5',
-                        confirmButtonText: '返回投票系統',
-                        customClass: {
-                            popup: 'rounded-2xl',
-                            confirmButton: 'rounded-lg px-6 py-3'
-                        }
-                    }).then(() => {
-                        window.location.href = 'voting_system_vue.html';
-                    });
-                    return;
-                }
-                
-                // 自動登入
-                this.loginEmpId = empId;
-                await this.login(true); // 傳遞 true 表示是自動登入
-            },
-            methods: {
-                async login(autoLogin = false) {
-                    const empId = this.loginEmpId.trim().toUpperCase();
-                    
-                    if (!empId) {
-                        this.loginError = '請輸入工號';
-                        return;
-                    }
-
-                    try {
-                        const empResponse = await fetch(`http://127.0.0.1:5000/api/employees`);
-                        const employees = await empResponse.json();
-                        const employee = employees.find(e => e.emp_id === empId);
-
-                        if (!employee) {
-                            this.loginError = '工號不存在';
-                            return;
-                        }
-
-                        this.isAdmin = empId === 'K18251';
-                        
-                        this.currentAdmin = {
-                            emp_id: empId,
-                            name: employee.name
-                        };
-
-                        this.isLoggedIn = true;
-                        this.loginError = '';
-                        
-                        this.currentTab = this.isAdmin ? 'votes' : 'employees';
-                        
-                        await this.refreshData();
-
-                        // 如果是自動登入，顯示歡迎訊息
-                        if (autoLogin) {
-                            Swal.fire({
-                                title: '歡迎回來！',
-                                text: `${employee.name}，您的投票已成功記錄`,
-                                icon: 'success',
-                                timer: 2000,
-                                showConfirmButton: false,
-                                customClass: {
-                                    popup: 'rounded-2xl'
-                                }
-                            });
-                        }
-                    } catch (error) {
-                        this.loginError = '系統錯誤，請稍後再試';
-                    }
-                },
-                async logout() {
-                    const result = await Swal.fire({
-                        title: '確定要登出嗎？',
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonColor: '#4F46E5',
-                        cancelButtonColor: '#6B7280',
-                        confirmButtonText: '確定登出',
-                        cancelButtonText: '取消',
-                        customClass: {
-                            popup: 'rounded-2xl',
-                            confirmButton: 'rounded-lg px-6 py-3',
-                            cancelButton: 'rounded-lg px-6 py-3'
-                        }
-                    });
-
-                    if (result.isConfirmed) {
-                        // 跳轉回投票系統
-                        window.location.href = 'voting_system_vue.html';
-                    }
-                },
-                backToVoting() {
-                    // 返回投票系統，並帶上工號參數
-                    window.location.href = `voting_system_vue.html?emp_id=${this.currentAdmin.emp_id}`;
-                },
-                async refreshData() {
-                    await Promise.all([
-                        this.loadStatistics(),
-                        this.loadEmployees(),
-                        this.isAdmin ? this.loadVotes() : Promise.resolve()
-                    ]);
-                },
-                async loadStatistics() {
-                    try {
-                        const response = await fetch('http://127.0.0.1:5000/api/statistics');
-                        this.statistics = await response.json();
-                    } catch (error) {
-                        console.error('載入統計失敗', error);
-                    }
-                },
-                async loadEmployees() {
-                    try {
-                        const response = await fetch('http://127.0.0.1:5000/api/employees');
-                        this.employees = await response.json();
-                    } catch (error) {
-                        console.error('載入員工列表失敗', error);
-                    }
-                },
-                async loadVotes() {
-                    if (!this.isAdmin) return;
-                    
-                    try {
-                        const response = await fetch('http://127.0.0.1:5000/api/votes');
-                        this.votes = await response.json();
-                    } catch (error) {
-                        console.error('載入投票記錄失敗', error);
-                    }
-                },
-                async resetSystem(resetType) {
-                    const messages = {
-                        'votes_only': '確定要清除所有投票記錄嗎？（保留7天投票限制）',
-                        'full_reset': '⚠️ 確定要完全重置系統嗎？這將清除所有投票記錄和時間限制！'
-                    };
-
-                    const result = await Swal.fire({
-                        title: '確認重置',
-                        text: messages[resetType],
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#DC2626',
-                        cancelButtonColor: '#6B7280',
-                        confirmButtonText: '確定重置',
-                        cancelButtonText: '取消',
-                        customClass: {
-                            popup: 'rounded-2xl',
-                            confirmButton: 'rounded-lg px-6 py-3',
-                            cancelButton: 'rounded-lg px-6 py-3'
-                        }
-                    });
-
-                    if (!result.isConfirmed) {
-                        return;
-                    }
-
-                    try {
-                        const response = await fetch('http://127.0.0.1:5000/api/reset', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ reset_type: resetType })
-                        });
-
-                        const data = await response.json();
-
-                        if (response.ok) {
-                            await Swal.fire({
-                                title: '重置成功',
-                                text: data.message,
-                                icon: 'success',
-                                confirmButtonColor: '#4F46E5',
-                                confirmButtonText: '確定',
-                                customClass: {
-                                    popup: 'rounded-2xl',
-                                    confirmButton: 'rounded-lg px-6 py-3'
-                                }
-                            });
-                            await this.refreshData();
-                        } else {
-                            Swal.fire({
-                                title: '重置失敗',
-                                text: data.error,
-                                icon: 'error',
-                                confirmButtonColor: '#4F46E5',
-                                confirmButtonText: '確定',
-                                customClass: {
-                                    popup: 'rounded-2xl',
-                                    confirmButton: 'rounded-lg px-6 py-3'
-                                }
-                            });
-                        }
-                    } catch (error) {
-                        Swal.fire({
-                            title: '系統錯誤',
-                            text: error.message,
-                            icon: 'error',
-                            confirmButtonColor: '#4F46E5',
-                            confirmButtonText: '確定',
-                            customClass: {
-                                popup: 'rounded-2xl',
-                                confirmButton: 'rounded-lg px-6 py-3'
-                            }
-                        });
-                    }
-                },
-                async reloadEmployees() {
-                    const result = await Swal.fire({
-                        title: '確認重新載入',
-                        html: '⚠️ 警告：此操作將從 emoinfo.json 重新載入員工資料並清除所有投票記錄！<br><br>確定要繼續嗎？',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#DC2626',
-                        cancelButtonColor: '#6B7280',
-                        confirmButtonText: '確定重新載入',
-                        cancelButtonText: '取消',
-                        customClass: {
-                            popup: 'rounded-2xl',
-                            confirmButton: 'rounded-lg px-6 py-3',
-                            cancelButton: 'rounded-lg px-6 py-3'
-                        }
-                    });
-
-                    if (!result.isConfirmed) {
-                        return;
-                    }
-
-                    try {
-                        const response = await fetch('http://127.0.0.1:5000/api/reload', {
-                            method: 'POST'
-                        });
-
-                        const data = await response.json();
-
-                        if (response.ok) {
-                            await Swal.fire({
-                                title: '重新載入成功',
-                                text: data.message,
-                                icon: 'success',
-                                confirmButtonColor: '#4F46E5',
-                                confirmButtonText: '確定',
-                                customClass: {
-                                    popup: 'rounded-2xl',
-                                    confirmButton: 'rounded-lg px-6 py-3'
-                                }
-                            });
-                            await this.refreshData();
-                        } else {
-                            Swal.fire({
-                                title: '重新載入失敗',
-                                text: data.error,
-                                icon: 'error',
-                                confirmButtonColor: '#4F46E5',
-                                confirmButtonText: '確定',
-                                customClass: {
-                                    popup: 'rounded-2xl',
-                                    confirmButton: 'rounded-lg px-6 py-3'
-                                }
-                            });
-                        }
-                    } catch (error) {
-                        Swal.fire({
-                            title: '系統錯誤',
-                            text: error.message,
-                            icon: 'error',
-                            confirmButtonColor: '#4F46E5',
-                            confirmButtonText: '確定',
-                            customClass: {
-                                popup: 'rounded-2xl',
-                                confirmButton: 'rounded-lg px-6 py-3'
-                            }
-                        });
-                    }
-                },
-                formatDate(timestamp) {
-                    return new Date(timestamp).toLocaleString('zh-TW');
-                },
-                getVotedFor(emp_id) {
-                    if (!this.isAdmin) return '-';
-                    const vote = this.votes.find(v => v.voter_emp_id === emp_id);
-                    return vote ? `${vote.voted_for_name} (${vote.voted_for_emp_id})` : '-';
-                },
-                exportVotes() {
-                    if (!this.isAdmin) return;
-                    
-                    let csv = '\ufeff投票時間,投票者工號,投票者姓名,投票者班別,被投票者工號,被投票者姓名,被投票者班別\n';
-                    
-                    this.votes.forEach(vote => {
-                        csv += `${this.formatDate(vote.timestamp)},${vote.voter_emp_id},${vote.voter_name},${vote.voter_shift},${vote.voted_for_emp_id},${vote.voted_for_name},${vote.voted_for_shift}\n`;
-                    });
-                    
-                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = `投票記錄_${new Date().toISOString().split('T')[0]}.csv`;
-                    link.click();
-                }
-            }
-        }).mount('#app');
-    </script>
+    
+    <!-- 引入分離的 JavaScript 文件 -->
+    <script src="admin_panel.js"></script>
 </body>
 </html>
