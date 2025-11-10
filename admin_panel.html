@@ -282,7 +282,6 @@
                                             <label class="text-sm font-semibold text-gray-700">查詢週數:</label>
                                             <select 
                                                 v-model="weeksToShow" 
-                                                @change="loadWeeklyStats"
                                                 class="px-3 py-2 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:outline-none font-semibold text-sm bg-white">
                                                 <option :value="4">近 4 週</option>
                                                 <option :value="8">近 8 週</option>
@@ -345,7 +344,7 @@
                                 <div class="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-6 shadow-lg">
                                     <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
                                         <span class="bg-red-500 text-white px-3 py-1 rounded-lg mr-3">RR</span>
-                                        得票排行榜
+                                        本週得票排行榜
                                     </h3>
                                     <div class="space-y-3">
                                         <div v-if="rrRanking.length === 0" class="text-center py-8 text-gray-500">
@@ -379,7 +378,7 @@
                                 <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 shadow-lg">
                                     <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
                                         <span class="bg-blue-500 text-white px-3 py-1 rounded-lg mr-3">輪班</span>
-                                        得票排行榜 TOP 10
+                                        本週得票排行榜 TOP 10
                                     </h3>
                                     <div class="space-y-3">
                                         <div v-if="shiftRanking.length === 0" class="text-center py-8 text-gray-500">

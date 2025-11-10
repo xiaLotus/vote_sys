@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 import json
 import os
 
+from loguru import logger
+
 app = Flask(__name__)
 CORS(app)
 
@@ -231,6 +233,50 @@ def get_employees():
     conn.close()
     return jsonify(employees)
 
+
+def authenticate_user(username, password):
+    try:
+        # # ✅ 從配置檔讀取 LDAP 設定
+        # ldap_server = config.get('LDAP', 'server')
+        # ldap_domain = config.get('LDAP', 'domain')
+        
+        # server = Server(ldap_server, get_info=ALL)
+        # user = f'{ldap_domain}\\{username}'
+        # logger.info(f"這邊是 {user} 準備降落")
+        
+        # conn = Connection(server, user=user, password=password, authentication=NTLM)
+        # if conn.bind():
+        #     logger.info(f"{user} 成功登入")
+        #     return True
+        # else:
+        #     logger.warning(f"{user} 登入失敗")
+        #     return False
+        
+        # ✅ 測試模式
+        logger.info(f"{username} 成功登入")
+        return True
+        
+    except Exception as e:
+        logger.error(f"拋出異常的使用者: {username}, 異常為: {str(e)}")
+        return False
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    logger.info(f"收到用戶名為 {username} 的登錄請求")
+    
+    if authenticate_user(username, password):
+        logger.info(f"用戶名為 {username} 的登錄成功")
+        return jsonify({"success": True, "message": "登入成功!"})
+    else:
+        logger.warning(f"用戶名為 {username} 的登錄失敗")
+        return jsonify({"success": False, "message": "帳號或密碼錯誤，請重新輸入"})
+
+
+
 # 獲取候選人列表(根據投票者的班別)
 @app.route('/api/candidates/<emp_id>', methods=['GET'])
 def get_candidates(emp_id):
@@ -369,24 +415,31 @@ def submit_vote():
 def get_statistics():
     conn = sqlite3.connect('voting.db')
     c = conn.cursor()
-    
+
     # 基本統計
     c.execute('SELECT COUNT(*) FROM employees')
     total_employees = c.fetchone()[0]
-    
+
     c.execute('SELECT COUNT(*) FROM employees WHERE has_voted = 1')
     voted_count = c.fetchone()[0]
-    
+
     # 統計過去7天內的投票數
     seven_days_ago = (datetime.now() - timedelta(days=7)).isoformat()
     c.execute('SELECT COUNT(*) FROM votes WHERE timestamp >= ?', (seven_days_ago,))
     recent_votes = c.fetchone()[0]
-    
-    # 得票統計
-    c.execute('''SELECT voted_for_emp_id, voted_for_name, voted_for_shift, COUNT(*) as vote_count
-                FROM votes
-                GROUP BY voted_for_emp_id
-                ORDER BY vote_count DESC''')
+
+    # ✅ 本週週一作為起始
+    week_start = get_week_start()
+
+    # ✅ 本週得票統計（只抓本週）
+    c.execute('''
+        SELECT voted_for_emp_id, voted_for_name, voted_for_shift, COUNT(*) as vote_count
+        FROM votes
+        WHERE week_start = ?
+        GROUP BY voted_for_emp_id
+        ORDER BY vote_count DESC
+        LIMIT 5
+    ''', (week_start,))
     
     vote_stats = []
     for row in c.fetchall():
@@ -396,17 +449,18 @@ def get_statistics():
             'shift_type': row[2],
             'vote_count': row[3]
         })
-    
+
     conn.close()
-    
+
     return jsonify({
         'total_employees': total_employees,
         'voted_count': voted_count,
         'pending_count': total_employees - voted_count,
         'vote_rate': round((voted_count / total_employees * 100) if total_employees > 0 else 0, 2),
         'recent_votes': recent_votes,
-        'vote_stats': vote_stats
+        'vote_stats': vote_stats  # ✅ 這邊就只回傳本週前五名
     })
+
 
 # 獲取所有投票記錄(後台用)
 @app.route('/api/votes', methods=['GET'])

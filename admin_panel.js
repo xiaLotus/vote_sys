@@ -36,6 +36,8 @@ createApp({
             },
             isLoadingWeeklyStats: false, // 加載狀態
             isRenderingChart: false, // 圖表渲染狀態
+            loadWeeklyStatsTimeout: null, // 防抖計時器
+            renderingLock: false, // 渲染鎖
             allTabs: [
                 { 
                     id: 'votes', 
@@ -111,10 +113,16 @@ createApp({
             }
         },
         weeksToShow(newValue) {
-            // 當週數選擇改變時，立即重新加載數據
-            if (this.currentTab === 'weekly') {
-                this.loadWeeklyStats();
+            // 使用防抖機制處理快速切換
+            if (this.loadWeeklyStatsTimeout) {
+                clearTimeout(this.loadWeeklyStatsTimeout);
             }
+            
+            this.loadWeeklyStatsTimeout = setTimeout(() => {
+                if (this.currentTab === 'weekly') {
+                    this.loadWeeklyStats();
+                }
+            }, 350); // 350ms 防抖延遲 - 既能防止衝突又不會太慢
         }
     },
     async mounted() {
@@ -145,6 +153,17 @@ createApp({
         await this.login(true); // 傳遞 true 表示是自動登入
     },
     beforeUnmount() {
+        // 清除防抖計時器
+        if (this.loadWeeklyStatsTimeout) {
+            clearTimeout(this.loadWeeklyStatsTimeout);
+            this.loadWeeklyStatsTimeout = null;
+        }
+
+        // 清除渲染鎖
+        this.renderingLock = false;
+        this.isRenderingChart = false;
+        this.isLoadingWeeklyStats = false;
+
         // 組件銷毀前清理圖表
         if (this.weeklyChart) {
             try {
@@ -271,6 +290,12 @@ createApp({
                 return;
             }
 
+            // 清除可能的防抖計時器
+            if (this.loadWeeklyStatsTimeout) {
+                clearTimeout(this.loadWeeklyStatsTimeout);
+                this.loadWeeklyStatsTimeout = null;
+            }
+
             // 設置加載狀態
             this.isLoadingWeeklyStats = true;
             
@@ -289,9 +314,9 @@ createApp({
                 // 計算平均值
                 this.calculateWeeklyAverages(validatedData);
                 
-                // 渲染圖表
-                await this.$nextTick(); // 確保 DOM 已更新
-                this.renderWeeklyChart(validatedData);
+                // 渲染圖表 - 確保 DOM 已更新
+                await this.$nextTick();
+                await this.renderWeeklyChart(validatedData);
                 
             } catch (error) {
                 console.error('載入每週統計失敗:', error);
@@ -310,16 +335,23 @@ createApp({
                 });
                 
                 // 顯示空數據
-                this.renderEmptyChart();
+                await this.$nextTick();
+                await this.renderEmptyChart();
             } finally {
                 // 取消加載狀態
                 this.isLoadingWeeklyStats = false;
             }
         },
         async refreshWeeklyStats() {
-            // 刷新按鈕專用函數
-            console.log('手動刷新每週統計');
-            await this.loadWeeklyStats();
+            // 刷新按鈕專用函數 - 使用防抖
+            if (this.loadWeeklyStatsTimeout) {
+                clearTimeout(this.loadWeeklyStatsTimeout);
+            }
+            
+            this.loadWeeklyStatsTimeout = setTimeout(async () => {
+                console.log('手動刷新每週統計');
+                await this.loadWeeklyStats();
+            }, 300); // 300ms 防抖
         },
         validateAndFillWeeklyData(data) {
             // 確保所有必要的數據字段都存在，如果不存在則用空數組或補0
@@ -398,21 +430,27 @@ createApp({
             }
         },
         async renderWeeklyChart(data) {
-            // 如果正在渲染，跳過
-            if (this.isRenderingChart) {
-                console.log('圖表正在渲染中，跳過此次請求');
-                return;
+            // 使用渲染鎖防止並發
+            if (this.renderingLock) {
+                console.log('圖表渲染已鎖定，等待完成...');
+                // 等待最多 2 秒
+                let waitTime = 0;
+                while (this.renderingLock && waitTime < 2000) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    waitTime += 100;
+                }
+                if (this.renderingLock) {
+                    console.warn('渲染鎖超時，強制解鎖');
+                    this.renderingLock = false;
+                    this.isRenderingChart = false;
+                }
             }
 
+            // 加鎖
+            this.renderingLock = true;
             this.isRenderingChart = true;
 
             try {
-                const ctx = document.getElementById('weeklyChart');
-                if (!ctx) {
-                    console.warn('找不到圖表 canvas 元素');
-                    return;
-                }
-
                 // 確保數據有效
                 if (!data || !data.weeks || data.weeks.length === 0) {
                     console.warn('沒有可顯示的數據');
@@ -420,28 +458,52 @@ createApp({
                     return;
                 }
 
+                // 第一次檢查 canvas 元素
+                let ctx = document.getElementById('weeklyChart');
+                if (!ctx) {
+                    console.warn('找不到圖表 canvas 元素（第一次檢查）');
+                    return;
+                }
+
                 // 完全銷毀舊圖表
                 if (this.weeklyChart) {
                     try {
+                        console.log('開始銷毀舊圖表...');
                         this.weeklyChart.destroy();
                         this.weeklyChart = null;
+                        console.log('舊圖表已銷毀');
                     } catch (error) {
                         console.error('銷毀舊圖表時出錯:', error);
                         this.weeklyChart = null;
                     }
                 }
 
-                // 等待下一幀，確保銷毀完成
+                // 等待 DOM 穩定 - 減少到 2 幀 + 50ms
                 await new Promise(resolve => requestAnimationFrame(resolve));
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                await new Promise(resolve => setTimeout(resolve, 50));
 
-                // 再次檢查 canvas 是否存在（可能在等待期間被移除）
+                // 第二次檢查 canvas 是否仍存在
                 const canvas = document.getElementById('weeklyChart');
                 if (!canvas) {
-                    console.warn('Canvas 元素已不存在');
+                    console.warn('Canvas 元素已不存在（第二次檢查）');
+                    return;
+                }
+
+                // 檢查 canvas 的 context 是否可用
+                try {
+                    const testCtx = canvas.getContext('2d');
+                    if (!testCtx) {
+                        console.warn('無法獲取 canvas context');
+                        return;
+                    }
+                } catch (error) {
+                    console.error('測試 canvas context 時出錯:', error);
                     return;
                 }
 
                 // 創建新圖表
+                console.log('開始創建新圖表...');
                 this.weeklyChart = new Chart(canvas, {
                     type: 'line',
                     data: {
@@ -622,47 +684,85 @@ createApp({
                 });
                 
                 console.log('圖表創建成功');
+                
             } catch (error) {
                 console.error('創建圖表時出錯:', error);
-                await this.renderEmptyChart();
+                console.error('錯誤堆疊:', error.stack);
+                // 嘗試渲染空圖表
+                try {
+                    await this.renderEmptyChart();
+                } catch (emptyError) {
+                    console.error('渲染空圖表也失敗:', emptyError);
+                }
             } finally {
                 this.isRenderingChart = false;
+                this.renderingLock = false; // 解鎖
             }
         },
         async renderEmptyChart() {
-            // 如果正在渲染，等待
-            if (this.isRenderingChart) {
-                await new Promise(resolve => setTimeout(resolve, 100));
+            // 使用渲染鎖
+            if (this.renderingLock) {
+                console.log('圖表渲染已鎖定，等待完成...');
+                let waitTime = 0;
+                while (this.renderingLock && waitTime < 2000) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    waitTime += 100;
+                }
+                if (this.renderingLock) {
+                    console.warn('渲染鎖超時，強制解鎖');
+                    this.renderingLock = false;
+                    this.isRenderingChart = false;
+                }
             }
 
+            this.renderingLock = true;
             this.isRenderingChart = true;
 
             try {
                 const ctx = document.getElementById('weeklyChart');
                 if (!ctx) {
-                    console.warn('找不到圖表 canvas 元素');
+                    console.warn('找不到圖表 canvas 元素（空圖表）');
                     return;
                 }
 
                 // 銷毀舊圖表
                 if (this.weeklyChart) {
                     try {
+                        console.log('銷毀舊圖表（空圖表模式）...');
                         this.weeklyChart.destroy();
                         this.weeklyChart = null;
                     } catch (error) {
-                        console.error('銷毀舊圖表時出錯:', error);
+                        console.error('銷毀舊圖表時出錯（空圖表）:', error);
                         this.weeklyChart = null;
                     }
                 }
 
-                // 等待下一幀
+                // 等待 DOM 穩定 - 2 幀 + 50ms
                 await new Promise(resolve => requestAnimationFrame(resolve));
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                await new Promise(resolve => setTimeout(resolve, 50));
 
                 // 再次檢查 canvas
                 const canvas = document.getElementById('weeklyChart');
-                if (!canvas) return;
+                if (!canvas) {
+                    console.warn('Canvas 元素已不存在（空圖表）');
+                    return;
+                }
+
+                // 檢查 canvas context
+                try {
+                    const testCtx = canvas.getContext('2d');
+                    if (!testCtx) {
+                        console.warn('無法獲取 canvas context（空圖表）');
+                        return;
+                    }
+                } catch (error) {
+                    console.error('測試 canvas context 時出錯（空圖表）:', error);
+                    return;
+                }
 
                 // 創建空圖表
+                console.log('創建空圖表...');
                 this.weeklyChart = new Chart(canvas, {
                     type: 'line',
                     data: {
@@ -692,10 +792,14 @@ createApp({
                         }
                     }
                 });
+                
+                console.log('空圖表創建成功');
             } catch (error) {
                 console.error('創建空圖表時出錯:', error);
+                console.error('錯誤堆疊:', error.stack);
             } finally {
                 this.isRenderingChart = false;
+                this.renderingLock = false; // 解鎖
             }
         },
         async saveQuotas() {

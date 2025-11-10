@@ -6,6 +6,7 @@
     <title>匿名投票系統 - 登入</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="static/js/package/axios.min.js"></script>
     <style>
         [v-cloak] { display: none; }
         body {
@@ -301,14 +302,26 @@
                             this.errorMessage = '此工號不在投票名單內';
                             return;
                         }
-
-                        // 密碼驗證（使用工號作為密碼）
-                        if (password !== empId) {
-                            this.errorMessage = '密碼錯誤';
-                            return;
+                        try{
+                            const loginRes = await axios.post('http://127.0.0.1:5000/api/login', {
+                                username: this.empId,
+                                password: this.password
+                            });      
+                            if (loginRes.data.success) {
+                                setTimeout(() => {
+                                    localStorage.setItem('username', this.username);
+                                    window.location.href = `voting_system_vue.html?emp_id=${empId}`;
+                                }, 300);
+                            } else {
+                                alert('帳號或密碼錯誤');
+                                this.empId = '';
+                                this.password = '';
+                            }                  
+                        }catch (error) {
+                            console.error('驗證錯誤:', error);
+                            alert('發生錯誤，請稍後再試');
                         }
 
-                        window.location.href = `voting_system_vue.html?emp_id=${empId}`;
                     } catch (error) {
                         this.errorMessage = '系統錯誤，請稍後再試';
                     }
