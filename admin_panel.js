@@ -1,12 +1,25 @@
 const { createApp } = Vue;
 
+// 工具函數：獲取當前年月
+function getCurrentYearMonth() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return { year, month };
+}
+
 createApp({
     data() {
         return {
-            isLoggedIn: false,
             loginEmpId: '',
             loginError: '',
-            currentAdmin: null,
+            // 改成：
+            currentAdmin: {
+                emp_id: '',
+                name: '載入中...'
+            },
+            rrRanking: [],
+            shiftRanking: [],
             isAdmin: false,
             currentTab: 'employees',
             statistics: {
@@ -16,16 +29,17 @@ createApp({
                 vote_rate: 0,
                 recent_votes: 0
             },
-            votes: [],
+            votes: [],  // 確保初始化為空數組
             employees: [],
             voteSearch: '',
+            searchQuery: '',  // 添加這行
             employeeSearch: '',
             quotas: {
                 rr: 1,
                 shift: 1
             },
             weeklyChart: null,
-            weeksToShow: 8, // 預設顯示 8 週
+            monthsToShow: 6, // 預設顯示 6 月
             weeklyStatsLabel: {
                 rr_avg: 0,
                 shift_avg: 0,
@@ -53,7 +67,7 @@ createApp({
                 },
                 { 
                     id: 'weekly', 
-                    name: '每週趨勢', 
+                    name: '每月趨勢', 
                     icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>', 
                     adminOnly: false 
                 },
@@ -77,12 +91,20 @@ createApp({
             return this.allTabs.filter(tab => !tab.adminOnly || this.isAdmin);
         },
         filteredVotes() {
-            const search = this.voteSearch.toLowerCase();
+            if (!Array.isArray(this.votes)) {
+                return [];
+            }
+            
+            if (!this.searchQuery) {
+                return this.votes;
+            }
+            
+            const query = this.searchQuery.toLowerCase();
             return this.votes.filter(vote => 
-                vote.voter_name.toLowerCase().includes(search) ||
-                vote.voter_emp_id.toLowerCase().includes(search) ||
-                vote.voted_for_name.toLowerCase().includes(search) ||
-                vote.voted_for_emp_id.toLowerCase().includes(search)
+                vote.voter_name?.toLowerCase().includes(query) ||
+                vote.voter_emp_id?.toLowerCase().includes(query) ||
+                vote.voted_for_name?.toLowerCase().includes(query) ||
+                vote.voted_for_emp_id?.toLowerCase().includes(query)
             );
         },
         filteredEmployees() {
@@ -92,23 +114,12 @@ createApp({
                 emp.emp_id.toLowerCase().includes(search)
             );
         },
-        rrRanking() {
-            return this.statistics.vote_stats
-                ?.filter(s => s.shift_type === 'RR')
-                .sort((a, b) => b.vote_count - a.vote_count) || [];
-        },
-        shiftRanking() {
-            return this.statistics.vote_stats
-                ?.filter(s => s.shift_type === '輪班')
-                .sort((a, b) => b.vote_count - a.vote_count)
-                .slice(0, 10) || [];
-        }
     },
     watch: {
         currentTab(newTab) {
             if (newTab === 'weekly') {
                 this.$nextTick(() => {
-                    this.loadWeeklyStats();
+                    this.loadMonthlyStats();  // ✅ 改為 loadMonthlyStats
                 });
             }
         },
@@ -120,15 +131,19 @@ createApp({
             
             this.loadWeeklyStatsTimeout = setTimeout(() => {
                 if (this.currentTab === 'weekly') {
-                    this.loadWeeklyStats();
+                    this.loadMonthlyStats();  // ✅ 改為 loadMonthlyStats
                 }
-            }, 350); // 350ms 防抖延遲 - 既能防止衝突又不會太慢
+            }, 350);
         }
     },
     async mounted() {
+        console.log('=== admin_panel 頁面載入 ===');
+        
         // 檢查 URL 是否有 emp_id 參數
         const urlParams = new URLSearchParams(window.location.search);
         const empId = urlParams.get('emp_id');
+        
+        console.log('從 URL 獲取的 emp_id:', empId);
         
         if (!empId) {
             // 如果沒有工號參數,跳轉回投票系統
@@ -148,10 +163,27 @@ createApp({
             return;
         }
         
-        // 自動登入
+        // 直接設置登入狀態
         this.loginEmpId = empId;
-        await this.login(true); // 傳遞 true 表示是自動登入
+        this.isAdmin = ['K18251', 'G9745'].includes(empId);
+        this.currentAdmin = {
+            emp_id: empId,
+            name: empId
+        };
+        this.isLoggedIn = true;
+        this.currentTab = this.isAdmin ? 'votes' : 'employees';
+        
+        console.log('已設置登入狀態，isLoggedIn:', this.isLoggedIn);
+        
+        // 嘗試載入數據（可選）
+        try {
+            await this.refreshData();
+            await this.reloadQuotas();
+        } catch (error) {
+            console.log('離線模式，無法載入數據');
+        }
     },
+
     beforeUnmount() {
         // 清除防抖計時器
         if (this.loadWeeklyStatsTimeout) {
@@ -175,56 +207,7 @@ createApp({
         }
     },
     methods: {
-        async login(autoLogin = false) {
-            const empId = this.loginEmpId.trim().toUpperCase();
-            
-            if (!empId) {
-                this.loginError = '請輸入工號';
-                return;
-            }
 
-            try {
-                const empResponse = await fetch(`http://127.0.0.1:5000/api/employees`);
-                const employees = await empResponse.json();
-                const employee = employees.find(e => e.emp_id === empId);
-
-                if (!employee) {
-                    this.loginError = '工號不存在';
-                    return;
-                }
-
-                this.isAdmin = empId === 'K18251';
-                
-                this.currentAdmin = {
-                    emp_id: empId,
-                    name: employee.name
-                };
-
-                this.isLoggedIn = true;
-                this.loginError = '';
-                
-                this.currentTab = this.isAdmin ? 'votes' : 'employees';
-                
-                await this.refreshData();
-                await this.reloadQuotas(); // 載入配額設定
-
-                // 如果是自動登入,顯示歡迎訊息
-                if (autoLogin) {
-                    Swal.fire({
-                        title: '歡迎回來!',
-                        text: `${employee.name},您的投票已成功記錄`,
-                        icon: 'success',
-                        timer: 2000,
-                        showConfirmButton: false,
-                        customClass: {
-                            popup: 'rounded-2xl'
-                        }
-                    });
-                }
-            } catch (error) {
-                this.loginError = '系統錯誤,請稍後再試';
-            }
-        },
         async logout() {
             const result = await Swal.fire({
                 title: '確定要登出嗎?',
@@ -259,48 +242,95 @@ createApp({
         },
         async loadStatistics() {
             try {
-                const response = await fetch('http://127.0.0.1:5000/api/statistics');
-                this.statistics = await response.json();
+                const { year, month } = getCurrentYearMonth();
+                const response = await fetch(`http://127.0.0.1:5000/api/vote_stats?year=${year}&month=${month}`);
+                const data = await response.json();
+                
+                console.log('統計數據:', data);
+                
+                // 確保數據存在
+                this.rrRanking = Array.isArray(data.rr_ranking) ? data.rr_ranking : [];
+                this.shiftRanking = Array.isArray(data.shift_ranking) ? data.shift_ranking : [];
+                
+                console.log('RR排行榜:', this.rrRanking);
+                console.log('輪班排行榜:', this.shiftRanking);
             } catch (error) {
                 console.error('載入統計失敗', error);
+                this.rrRanking = [];
+                this.shiftRanking = [];
             }
         },
         async loadEmployees() {
             try {
-                const response = await fetch('http://127.0.0.1:5000/api/employees');
-                this.employees = await response.json();
+                const { year, month } = getCurrentYearMonth();
+                const response = await fetch(`http://127.0.0.1:5000/api/employees?year=${year}&month=${month}`);
+                const data = await response.json();
+                
+                console.log('員工數據:', data);
+                
+                // 確保數據存在，並為每個員工添加 can_vote 字段
+                this.employees = Array.isArray(data) ? data.map(emp => ({
+                    ...emp,
+                    can_vote: emp.votes_used < emp.max_votes
+                })) : [];
+
+                // 計算統計數據
+                const totalEmployees = this.employees.length;
+                const votedCount = this.employees.filter(emp => emp.has_voted === true).length;
+                const notVotedCount = totalEmployees - votedCount;
+                const votedRate = totalEmployees > 0 
+                    ? ((votedCount / totalEmployees) * 100).toFixed(1) 
+                    : 0;
+                
+                // 設置到 statistics 對象中供 HTML 使用
+                this.statistics.total_employees = totalEmployees;
+                this.statistics.voted_count = votedCount;
+                this.statistics.pending_count = notVotedCount;
+                this.statistics.vote_rate = votedRate;
+                this.statistics.recent_votes = votedCount;
+                
+                console.log(`員工統計 - 總數:${totalEmployees}, 已投:${votedCount}, 未投:${notVotedCount}, 投票率:${votedRate}%, 本月投票:${votedCount}`);
             } catch (error) {
                 console.error('載入員工列表失敗', error);
+                this.employees = [];
+                this.statistics.total_employees = 0;
+                this.statistics.voted_count = 0;
+                this.statistics.pending_count = 0;
+                this.statistics.vote_rate = 0;
+                this.statistics.recent_votes = 0;
             }
         },
         async loadVotes() {
-            if (!this.isAdmin) return;
-            
             try {
-                const response = await fetch('http://127.0.0.1:5000/api/votes');
-                this.votes = await response.json();
+                const { year, month } = getCurrentYearMonth();
+                const response = await fetch(`http://127.0.0.1:5000/api/votes?year=${year}&month=${month}`);
+                const data = await response.json();
+                
+                // 確保 votes 是數組
+                this.votes = Array.isArray(data.votes) ? data.votes : [];
+                
+                console.log('成功載入投票記錄，數量:', this.votes.length);
             } catch (error) {
                 console.error('載入投票記錄失敗', error);
+                this.votes = [];
             }
         },
-        async loadWeeklyStats() {
-            // 防止重複執行
+        async loadMonthlyStats() {
             if (this.isLoadingWeeklyStats) {
                 console.log('正在載入中，跳過此次請求');
                 return;
             }
 
-            // 清除可能的防抖計時器
             if (this.loadWeeklyStatsTimeout) {
                 clearTimeout(this.loadWeeklyStatsTimeout);
                 this.loadWeeklyStatsTimeout = null;
             }
 
-            // 設置加載狀態
             this.isLoadingWeeklyStats = true;
             
             try {
-                const response = await fetch(`http://127.0.0.1:5000/api/weekly_stats?weeks=${this.weeksToShow}`);
+                const monthsToShow = this.monthsToShow || 6;
+                const response = await fetch(`http://127.0.0.1:5000/api/monthly_participation?months=${monthsToShow}`);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -308,23 +338,18 @@ createApp({
                 
                 const data = await response.json();
                 
-                // 數據驗證和補0
-                const validatedData = this.validateAndFillWeeklyData(data);
+                const validatedData = this.validateAndFillMonthlyData(data);
+                this.calculateMonthlyAverages(validatedData);
                 
-                // 計算平均值
-                this.calculateWeeklyAverages(validatedData);
-                
-                // 渲染圖表 - 確保 DOM 已更新
                 await this.$nextTick();
-                await this.renderWeeklyChart(validatedData);
+                await this.renderMonthlyChart(validatedData);
                 
             } catch (error) {
-                console.error('載入每週統計失敗:', error);
+                console.error('載入每月統計失敗:', error);
                 
-                // 顯示錯誤提示
                 Swal.fire({
                     title: '載入失敗',
-                    text: '無法載入每週統計數據，請稍後再試',
+                    text: '無法載入每月統計數據，請稍後再試',
                     icon: 'error',
                     confirmButtonColor: '#4F46E5',
                     confirmButtonText: '確定',
@@ -334,228 +359,130 @@ createApp({
                     }
                 });
                 
-                // 顯示空數據
                 await this.$nextTick();
                 await this.renderEmptyChart();
             } finally {
-                // 取消加載狀態
                 this.isLoadingWeeklyStats = false;
             }
         },
-        async refreshWeeklyStats() {
-            // 刷新按鈕專用函數 - 使用防抖
+
+        async refreshMonthlyStats() {
             if (this.loadWeeklyStatsTimeout) {
                 clearTimeout(this.loadWeeklyStatsTimeout);
             }
             
-            this.loadWeeklyStatsTimeout = setTimeout(async () => {
-                console.log('手動刷新每週統計');
-                await this.loadWeeklyStats();
-            }, 300); // 300ms 防抖
+            this.loadWeeklyStatsTimeout = setTimeout(() => {
+                console.log('手動刷新每月統計');
+                this.loadMonthlyStats();  // ✅ 改為 loadMonthlyStats
+            }, 300);
         },
-        validateAndFillWeeklyData(data) {
-            // 確保所有必要的數據字段都存在，如果不存在則用空數組或補0
-            const weeks = data.weeks || [];
-            const weeksCount = weeks.length || this.weeksToShow;
+        validateAndFillMonthlyData(data) {
+            const labels = data.labels || [];
+            const rr_rates = data.rr_rates || [];
+            const shift_rates = data.shift_rates || [];
+            const total_rates = data.total_rates || [];
+            const rr_votes = data.rr_votes || [];
+            const shift_votes = data.shift_votes || [];
+            const total_votes = data.total_votes || [];
             
-            // 如果沒有週次標籤，生成默認的
-            if (weeks.length === 0) {
-                for (let i = 0; i < weeksCount; i++) {
-                    weeks.push(`週 ${i + 1}`);
-                }
+            const length = Math.max(
+                labels.length,
+                rr_rates.length,
+                shift_rates.length,
+                total_rates.length,
+                rr_votes.length,
+                shift_votes.length,
+                total_votes.length
+            );
+            
+            for (let i = 0; i < length; i++) {
+                if (!labels[i]) labels[i] = `月 ${i + 1}`;
+                if (rr_rates[i] === undefined || rr_rates[i] === null) rr_rates[i] = 0;
+                if (shift_rates[i] === undefined || shift_rates[i] === null) shift_rates[i] = 0;
+                if (total_rates[i] === undefined || total_rates[i] === null) total_rates[i] = 0;
+                if (rr_votes[i] === undefined || rr_votes[i] === null) rr_votes[i] = 0;
+                if (shift_votes[i] === undefined || shift_votes[i] === null) shift_votes[i] = 0;
+                if (total_votes[i] === undefined || total_votes[i] === null) total_votes[i] = 0;
             }
-            
-            // 確保數據數組長度一致，不足的補0
-            const ensureArrayLength = (arr, length) => {
-                if (!Array.isArray(arr)) return Array(length).fill(0);
-                if (arr.length < length) {
-                    return [...arr, ...Array(length - arr.length).fill(0)];
-                }
-                return arr.slice(0, length);
-            };
             
             return {
-                weeks: weeks,
-                rr_rates: ensureArrayLength(data.rr_rates, weeksCount),
-                shift_rates: ensureArrayLength(data.shift_rates, weeksCount),
-                total_rates: ensureArrayLength(data.total_rates, weeksCount),
-                rr_votes: ensureArrayLength(data.rr_votes, weeksCount),
-                shift_votes: ensureArrayLength(data.shift_votes, weeksCount),
-                total_votes: ensureArrayLength(data.total_votes, weeksCount)
+                labels,
+                rr_rates,
+                shift_rates,
+                total_rates,
+                rr_votes,
+                shift_votes,
+                total_votes
             };
         },
-        calculateWeeklyAverages(data) {
-            // 計算各類別的平均參與率
-            if (data.rr_rates && data.rr_rates.length > 0) {
-                const rrSum = data.rr_rates.reduce((a, b) => a + b, 0);
-                this.weeklyStatsLabel.rr_avg = Math.round(rrSum / data.rr_rates.length * 10) / 10; // 保留一位小數
-            } else {
-                this.weeklyStatsLabel.rr_avg = 0;
-            }
 
-            if (data.shift_rates && data.shift_rates.length > 0) {
-                const shiftSum = data.shift_rates.reduce((a, b) => a + b, 0);
-                this.weeklyStatsLabel.shift_avg = Math.round(shiftSum / data.shift_rates.length * 10) / 10;
-            } else {
-                this.weeklyStatsLabel.shift_avg = 0;
-            }
-
-            if (data.total_rates && data.total_rates.length > 0) {
-                const totalSum = data.total_rates.reduce((a, b) => a + b, 0);
-                this.weeklyStatsLabel.total_avg = Math.round(totalSum / data.total_rates.length * 10) / 10;
-            } else {
-                this.weeklyStatsLabel.total_avg = 0;
-            }
-
-            // 計算平均票數
-            if (data.rr_votes && data.rr_votes.length > 0) {
-                const rrVotesSum = data.rr_votes.reduce((a, b) => a + b, 0);
-                this.weeklyStatsLabel.rr_votes = Math.round(rrVotesSum / data.rr_votes.length);
-            } else {
-                this.weeklyStatsLabel.rr_votes = 0;
-            }
-
-            if (data.shift_votes && data.shift_votes.length > 0) {
-                const shiftVotesSum = data.shift_votes.reduce((a, b) => a + b, 0);
-                this.weeklyStatsLabel.shift_votes = Math.round(shiftVotesSum / data.shift_votes.length);
-            } else {
-                this.weeklyStatsLabel.shift_votes = 0;
-            }
-
-            if (data.total_votes && data.total_votes.length > 0) {
-                const totalVotesSum = data.total_votes.reduce((a, b) => a + b, 0);
-                this.weeklyStatsLabel.total_votes = Math.round(totalVotesSum / data.total_votes.length);
-            } else {
-                this.weeklyStatsLabel.total_votes = 0;
-            }
+        calculateMonthlyAverages(data) {
+            const sum = arr => arr.reduce((a, b) => a + b, 0);
+            const avg = arr => arr.length > 0 ? (sum(arr) / arr.length).toFixed(1) : 0;
+            
+            this.weeklyStatsLabel = {
+                rr_avg: avg(data.rr_rates),
+                shift_avg: avg(data.shift_rates),
+                total_avg: avg(data.total_rates),
+                rr_votes: sum(data.rr_votes),
+                shift_votes: sum(data.shift_votes),
+                total_votes: sum(data.total_votes)
+            };
         },
-        async renderWeeklyChart(data) {
-            // 使用渲染鎖防止並發
-            if (this.renderingLock) {
-                console.log('圖表渲染已鎖定，等待完成...');
-                // 等待最多 2 秒
-                let waitTime = 0;
-                while (this.renderingLock && waitTime < 2000) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    waitTime += 100;
-                }
-                if (this.renderingLock) {
-                    console.warn('渲染鎖超時，強制解鎖');
-                    this.renderingLock = false;
-                    this.isRenderingChart = false;
-                }
-            }
 
-            // 加鎖
+        async renderMonthlyChart(data) {
+            if (this.renderingLock) {
+                console.log('圖表正在渲染中，跳過');
+                return;
+            }
+            
             this.renderingLock = true;
             this.isRenderingChart = true;
-
+            
             try {
-                // 確保數據有效
-                if (!data || !data.weeks || data.weeks.length === 0) {
-                    console.warn('沒有可顯示的數據');
-                    await this.renderEmptyChart();
-                    return;
-                }
-
-                // 第一次檢查 canvas 元素
-                let ctx = document.getElementById('weeklyChart');
-                if (!ctx) {
-                    console.warn('找不到圖表 canvas 元素（第一次檢查）');
-                    return;
-                }
-
-                // 完全銷毀舊圖表
-                if (this.weeklyChart) {
-                    try {
-                        console.log('開始銷毀舊圖表...');
-                        this.weeklyChart.destroy();
-                        this.weeklyChart = null;
-                        console.log('舊圖表已銷毀');
-                    } catch (error) {
-                        console.error('銷毀舊圖表時出錯:', error);
-                        this.weeklyChart = null;
-                    }
-                }
-
-                // 等待 DOM 穩定 - 減少到 2 幀 + 50ms
-                await new Promise(resolve => requestAnimationFrame(resolve));
-                await new Promise(resolve => requestAnimationFrame(resolve));
-                await new Promise(resolve => setTimeout(resolve, 50));
-
-                // 第二次檢查 canvas 是否仍存在
+                await this.$nextTick();
+                
                 const canvas = document.getElementById('weeklyChart');
                 if (!canvas) {
-                    console.warn('Canvas 元素已不存在（第二次檢查）');
+                    console.error('找不到圖表容器');
                     return;
                 }
-
-                // 檢查 canvas 的 context 是否可用
-                try {
-                    const testCtx = canvas.getContext('2d');
-                    if (!testCtx) {
-                        console.warn('無法獲取 canvas context');
-                        return;
-                    }
-                } catch (error) {
-                    console.error('測試 canvas context 時出錯:', error);
-                    return;
+                
+                if (this.weeklyChart) {
+                    this.weeklyChart.destroy();
+                    this.weeklyChart = null;
                 }
-
-                // 創建新圖表
-                console.log('開始創建新圖表...');
-                this.weeklyChart = new Chart(canvas, {
+                
+                const ctx = canvas.getContext('2d');
+                
+                this.weeklyChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: data.weeks || [],
+                        labels: data.labels,
                         datasets: [
                             {
                                 label: 'RR 參與率',
-                                data: data.rr_rates || [],
+                                data: data.rr_rates,
                                 borderColor: 'rgb(239, 68, 68)',
                                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
                                 tension: 0.4,
-                                fill: true,
-                                yAxisID: 'y-rate',
-                                pointRadius: 4,
-                                pointHoverRadius: 6
+                                fill: true
                             },
                             {
                                 label: '輪班參與率',
-                                data: data.shift_rates || [],
+                                data: data.shift_rates,
                                 borderColor: 'rgb(59, 130, 246)',
                                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                                 tension: 0.4,
-                                fill: true,
-                                yAxisID: 'y-rate',
-                                pointRadius: 4,
-                                pointHoverRadius: 6
+                                fill: true
                             },
                             {
-                                label: '總參與率',
-                                data: data.total_rates || [],
-                                borderColor: 'rgb(168, 85, 247)',
-                                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                                label: '總體參與率',
+                                data: data.total_rates,
+                                borderColor: 'rgb(16, 185, 129)',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
                                 tension: 0.4,
-                                fill: true,
-                                borderWidth: 3,
-                                yAxisID: 'y-rate',
-                                pointRadius: 5,
-                                pointHoverRadius: 7
-                            },
-                            {
-                                label: '總票數',
-                                data: data.total_votes || [],
-                                borderColor: 'rgb(251, 146, 60)',
-                                backgroundColor: 'rgba(251, 146, 60, 0.1)',
-                                tension: 0.4,
-                                fill: false,
-                                borderWidth: 2,
-                                borderDash: [5, 5],
-                                yAxisID: 'y-votes',
-                                hidden: false,
-                                pointRadius: 4,
-                                pointHoverRadius: 6
+                                fill: true
                             }
                         ]
                     },
@@ -570,17 +497,16 @@ createApp({
                             legend: {
                                 position: 'top',
                                 labels: {
-                                    font: {
-                                        size: 14,
-                                        weight: 'bold'
-                                    },
                                     usePointStyle: true,
-                                    padding: 15
+                                    padding: 15,
+                                    font: {
+                                        size: 12
+                                    }
                                 }
                             },
                             title: {
                                 display: true,
-                                text: `近 ${this.weeksToShow} 週投票參與趨勢`,
+                                text: `近 ${this.monthsToShow} 月投票參與趨勢`,
                                 font: {
                                     size: 16,
                                     weight: 'bold'
@@ -593,34 +519,16 @@ createApp({
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                        }
-                                        if (context.parsed.y !== null) {
-                                            if (context.dataset.yAxisID === 'y-rate') {
-                                                label += context.parsed.y.toFixed(1) + '%';
-                                            } else {
-                                                label += context.parsed.y + ' 票';
-                                            }
-                                        }
-                                        return label;
+                                        return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';
                                     }
                                 }
                             }
                         },
                         scales: {
-                            'y-rate': {
-                                type: 'linear',
-                                display: true,
-                                position: 'left',
+                            y: {
                                 beginAtZero: true,
                                 max: 100,
                                 ticks: {
-                                    stepSize: 10,
-                                    font: {
-                                        size: 12
-                                    },
                                     callback: function(value) {
                                         return value + '%';
                                     }
@@ -629,53 +537,16 @@ createApp({
                                     display: true,
                                     text: '參與率 (%)',
                                     font: {
-                                        size: 14,
-                                        weight: 'bold'
-                                    }
-                                },
-                                grid: {
-                                    drawOnChartArea: true,
-                                }
-                            },
-                            'y-votes': {
-                                type: 'linear',
-                                display: true,
-                                position: 'right',
-                                beginAtZero: true,
-                                ticks: {
-                                    stepSize: 1,
-                                    font: {
                                         size: 12
-                                    },
-                                    callback: function(value) {
-                                        return value + ' 票';
                                     }
-                                },
-                                title: {
-                                    display: true,
-                                    text: '票數',
-                                    font: {
-                                        size: 14,
-                                        weight: 'bold'
-                                    },
-                                    color: 'rgb(251, 146, 60)'
-                                },
-                                grid: {
-                                    drawOnChartArea: false,
                                 }
                             },
                             x: {
-                                ticks: {
-                                    font: {
-                                        size: 12
-                                    }
-                                },
                                 title: {
                                     display: true,
-                                    text: '週次 (月-日)',
+                                    text: '月份',
                                     font: {
-                                        size: 14,
-                                        weight: 'bold'
+                                        size: 12
                                     }
                                 }
                             }
@@ -683,22 +554,15 @@ createApp({
                     }
                 });
                 
-                console.log('圖表創建成功');
-                
+                console.log('圖表渲染成功');
             } catch (error) {
-                console.error('創建圖表時出錯:', error);
-                console.error('錯誤堆疊:', error.stack);
-                // 嘗試渲染空圖表
-                try {
-                    await this.renderEmptyChart();
-                } catch (emptyError) {
-                    console.error('渲染空圖表也失敗:', emptyError);
-                }
+                console.error('渲染圖表失敗:', error);
             } finally {
+                this.renderingLock = false;
                 this.isRenderingChart = false;
-                this.renderingLock = false; // 解鎖
             }
         },
+
         async renderEmptyChart() {
             // 使用渲染鎖
             if (this.renderingLock) {
@@ -919,12 +783,17 @@ createApp({
             }
 
             try {
+                const { year, month } = getCurrentYearMonth();
                 const response = await fetch('http://127.0.0.1:5000/api/reset', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ reset_type: resetType })
+                    body: JSON.stringify({
+                        admin_id: this.currentAdmin.empId,
+                        year: year,
+                        month: month
+                    })
                 });
 
                 const data = await response.json();
@@ -971,13 +840,13 @@ createApp({
         },
         async reloadEmployees() {
             const result = await Swal.fire({
-                title: '確認重新載入',
-                html: '⚠️ 警告:此操作將從 emoinfo.json 重新載入員工資料並清除所有投票記錄!<br><br>確定要繼續嗎?',
-                icon: 'warning',
+                title: '確定要重新載入員工資料嗎?',
+                text: '這將從 emoinfo.json 重新載入員工列表',
+                icon: 'question',
                 showCancelButton: true,
-                confirmButtonColor: '#DC2626',
+                confirmButtonColor: '#4F46E5',
                 cancelButtonColor: '#6B7280',
-                confirmButtonText: '確定重新載入',
+                confirmButtonText: '確定載入',
                 cancelButtonText: '取消',
                 customClass: {
                     popup: 'rounded-2xl',
@@ -986,34 +855,52 @@ createApp({
                 }
             });
 
-            if (!result.isConfirmed) {
-                return;
-            }
-
-            try {
-                const response = await fetch('http://127.0.0.1:5000/api/reload', {
-                    method: 'POST'
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    await Swal.fire({
-                        title: '重新載入成功',
-                        text: data.message,
-                        icon: 'success',
-                        confirmButtonColor: '#4F46E5',
-                        confirmButtonText: '確定',
-                        customClass: {
-                            popup: 'rounded-2xl',
-                            confirmButton: 'rounded-lg px-6 py-3'
-                        }
+            if (result.isConfirmed) {
+                try {
+                    const { year, month } = getCurrentYearMonth();
+                    const response = await fetch('http://127.0.0.1:5000/api/load_employees', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            year: year,
+                            month: month
+                        })
                     });
-                    await this.refreshData();
-                } else {
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        await Swal.fire({
+                            title: '載入成功!',
+                            text: data.message,
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false,
+                            customClass: {
+                                popup: 'rounded-2xl'
+                            }
+                        });
+
+                        await this.refreshData();
+                    } else {
+                        Swal.fire({
+                            title: '載入失敗',
+                            text: data.error,
+                            icon: 'error',
+                            confirmButtonColor: '#4F46E5',
+                            confirmButtonText: '確定',
+                            customClass: {
+                                popup: 'rounded-2xl',
+                                confirmButton: 'rounded-lg px-6 py-3'
+                            }
+                        });
+                    }
+                } catch (error) {
                     Swal.fire({
-                        title: '重新載入失敗',
-                        text: data.error,
+                        title: '系統錯誤',
+                        text: '載入失敗,請稍後再試',
                         icon: 'error',
                         confirmButtonColor: '#4F46E5',
                         confirmButtonText: '確定',
@@ -1023,18 +910,6 @@ createApp({
                         }
                     });
                 }
-            } catch (error) {
-                Swal.fire({
-                    title: '系統錯誤',
-                    text: error.message,
-                    icon: 'error',
-                    confirmButtonColor: '#4F46E5',
-                    confirmButtonText: '確定',
-                    customClass: {
-                        popup: 'rounded-2xl',
-                        confirmButton: 'rounded-lg px-6 py-3'
-                    }
-                });
             }
         },
         formatDate(timestamp) {
@@ -1059,6 +934,10 @@ createApp({
             link.href = URL.createObjectURL(blob);
             link.download = `投票記錄_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
+        },
+         getCurrentYearMonth() {
+            const now = new Date();
+            return { year: now.getFullYear(), month: now.getMonth() + 1 };
         }
     }
 }).mount('#app');

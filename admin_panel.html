@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>投票系統 - 後台管理</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="static/js/package/tailwinds.js"></script>
+    <script src="static/js/package/vue.global.js"></script>
+    <script src="static/js/package/sweetalert2@11.js"></script>
+    <script src="static/js/package/chart.js"></script>
     <style>
         [v-cloak] { display: none; }
     </style>
@@ -15,7 +15,7 @@
 <body class="bg-gray-50">
     <div id="app" v-cloak>
         <!-- 後台主介面 -->
-        <div v-if="isLoggedIn">
+        <div>
             <!-- 頂部導航 -->
             <div class="bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg">
                 <div class="max-w-7xl mx-auto px-4 py-6">
@@ -251,7 +251,7 @@
                                                     ✓ 可投票
                                                 </span>
                                                 <span v-else class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-bold">
-                                                    ⏳ 本週已達配額
+                                                    ⏳ 本月已達配額
                                                 </span>
                                             </td>
                                             <td class="px-4 py-4 text-sm text-gray-500">
@@ -263,35 +263,35 @@
                             </div>
                         </div>
 
-                        <!-- 每週趨勢 - 新分頁 -->
+                        <!-- 每月趨勢 - 新分頁 -->
                         <div v-if="currentTab === 'weekly'">
-                            <h2 class="text-2xl font-bold text-gray-800 mb-6">📊 每週參與率趨勢</h2>
+                            <h2 class="text-2xl font-bold text-gray-800 mb-6">📊 每月參與率趨勢</h2>
                             
-                            <!-- 每週參與率圖表 -->
+                            <!-- 每月參與率圖表 -->
                             <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 shadow-lg mb-8">
                                 <div class="flex items-center justify-between mb-4">
                                     <h3 class="text-xl font-bold text-gray-800 flex items-center">
                                         <svg class="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
                                         </svg>
-                                        每週參與率趨勢
+                                        每月參與率趨勢
                                     </h3>
                                     <div class="flex items-center space-x-3">
-                                        <!-- 週數選擇器 -->
+                                        <!-- 月數選擇器 -->
                                         <div class="flex items-center space-x-2">
-                                            <label class="text-sm font-semibold text-gray-700">查詢週數:</label>
+                                            <label class="text-sm font-semibold text-gray-700">查詢月數:</label>
                                             <select 
-                                                v-model="weeksToShow" 
+                                                v-model="monthsToShow" 
                                                 class="px-3 py-2 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:outline-none font-semibold text-sm bg-white">
-                                                <option :value="4">近 4 週</option>
-                                                <option :value="8">近 8 週</option>
-                                                <option :value="12">近 12 週</option>
-                                                <option :value="16">近 16 週</option>
-                                                <option :value="20">近 20 週</option>
-                                                <option :value="24">近 24 週</option>
+                                                <option :value="4">近 4 月</option>
+                                                <option :value="8">近 8 月</option>
+                                                <option :value="12">近 12 月</option>
+                                                <option :value="16">近 16 月</option>
+                                                <option :value="20">近 20 月</option>
+                                                <option :value="24">近 24 月</option>
                                             </select>
                                         </div>
-                                        <button @click="refreshWeeklyStats" :disabled="isLoadingWeeklyStats" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <button @click="refreshMonthlyStats" :disabled="isLoadingWeeklyStats" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                                             <svg class="w-4 h-4 inline mr-1" :class="{'animate-spin': isLoadingWeeklyStats}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                                             </svg>
@@ -344,7 +344,7 @@
                                 <div class="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-6 shadow-lg">
                                     <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
                                         <span class="bg-red-500 text-white px-3 py-1 rounded-lg mr-3">RR</span>
-                                        本週得票排行榜
+                                        本月得票排行榜
                                     </h3>
                                     <div class="space-y-3">
                                         <div v-if="rrRanking.length === 0" class="text-center py-8 text-gray-500">
@@ -378,7 +378,7 @@
                                 <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 shadow-lg">
                                     <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
                                         <span class="bg-blue-500 text-white px-3 py-1 rounded-lg mr-3">輪班</span>
-                                        本週得票排行榜 TOP 10
+                                        本月得票排行榜 TOP 10
                                     </h3>
                                     <div class="space-y-3">
                                         <div v-if="shiftRanking.length === 0" class="text-center py-8 text-gray-500">
@@ -422,24 +422,24 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
                                         </svg>
                                         <div class="flex-1">
-                                            <h3 class="font-bold text-purple-900 mb-2">每週投票配額管理</h3>
-                                            <p class="text-purple-800 mb-4">設定每位員工每週可投票的次數(1-10票)</p>
+                                            <h3 class="font-bold text-purple-900 mb-2">每月投票配額管理</h3>
+                                            <p class="text-purple-800 mb-4">設定每位員工每月可投票的次數(1-20票)</p>
                                             
                                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                                 <!-- RR 配額 -->
                                                 <div class="bg-white rounded-lg p-4 shadow">
                                                     <label class="block text-sm font-bold text-gray-700 mb-2">
                                                         <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs mr-2">RR</span>
-                                                        每週投票配額
+                                                        每月投票配額
                                                     </label>
                                                     <div class="flex items-center space-x-3">
                                                         <input 
                                                             type="number" 
                                                             v-model.number="quotas.rr"
                                                             min="1"
-                                                            max="10"
+                                                            max="20"
                                                             class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none font-bold text-lg text-center">
-                                                        <span class="text-gray-600 font-semibold">票/週</span>
+                                                        <span class="text-gray-600 font-semibold">票/月</span>
                                                     </div>
                                                 </div>
 
@@ -447,16 +447,16 @@
                                                 <div class="bg-white rounded-lg p-4 shadow">
                                                     <label class="block text-sm font-bold text-gray-700 mb-2">
                                                         <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">輪班</span>
-                                                        每週投票配額
+                                                        每月投票配額
                                                     </label>
                                                     <div class="flex items-center space-x-3">
                                                         <input 
                                                             type="number" 
                                                             v-model.number="quotas.shift"
                                                             min="1"
-                                                            max="10"
+                                                            max="20"
                                                             class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none font-bold text-lg text-center">
-                                                        <span class="text-gray-600 font-semibold">票/週</span>
+                                                        <span class="text-gray-600 font-semibold">票/月</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -486,7 +486,7 @@
                                         </svg>
                                         <div>
                                             <h3 class="font-bold text-yellow-900 mb-2">重置投票記錄</h3>
-                                            <p class="text-yellow-800 mb-4">只清除投票記錄,保留每週配額限制</p>
+                                            <p class="text-yellow-800 mb-4">只清除投票記錄,保留每月配額限制</p>
                                             <button @click="resetSystem('votes_only')" class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg font-bold transition">
                                                 <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -504,7 +504,7 @@
                                         </svg>
                                         <div>
                                             <h3 class="font-bold text-red-900 mb-2">完全重置系統</h3>
-                                            <p class="text-red-800 mb-4">⚠️ 清除所有投票記錄和每週投票追蹤,所有員工立即可以再次投票</p>
+                                            <p class="text-red-800 mb-4">⚠️ 清除所有投票記錄和每月投票追蹤,所有員工立即可以再次投票</p>
                                             <button @click="resetSystem('full_reset')" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-bold transition">
                                                 <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
