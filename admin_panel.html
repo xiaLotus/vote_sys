@@ -181,7 +181,7 @@
                                                         <p class="font-bold text-gray-900">{{ vote.voter_name }}</p>
                                                         <p class="text-sm text-gray-500">{{ vote.voter_emp_id }}</p>
                                                         <span :class="vote.voter_shift === 'RR' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
-                                                              class="inline-block mt-1 px-2 py-1 rounded-full text-xs font-semibold">
+                                                            class="inline-block mt-1 px-2 py-1 rounded-full text-xs font-semibold">
                                                             {{ vote.voter_shift }}
                                                         </span>
                                                     </div>
@@ -203,7 +203,7 @@
                                                         <p class="font-bold text-gray-900">{{ vote.voted_for_name }}</p>
                                                         <p class="text-sm text-gray-500">{{ vote.voted_for_emp_id }}</p>
                                                         <span :class="vote.voted_for_shift === 'RR' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
-                                                              class="inline-block mt-1 px-2 py-1 rounded-full text-xs font-semibold">
+                                                            class="inline-block mt-1 px-2 py-1 rounded-full text-xs font-semibold">
                                                             {{ vote.voted_for_shift }}
                                                         </span>
                                                     </div>
@@ -241,7 +241,7 @@
                                             <td class="px-4 py-4 text-sm font-semibold text-gray-900">{{ emp.emp_id }}</td>
                                             <td class="px-4 py-4 text-sm font-bold text-gray-900">{{ emp.name }}</td>
                                             <td class="px-4 py-4">
-                                                <span :class="emp.shift_type === 'RR' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
+                                                <span :class="emp.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
                                                       class="px-3 py-1 rounded-full text-xs font-bold">
                                                     {{ emp.shift_type }}
                                                 </span>
@@ -284,6 +284,7 @@
                                                 v-model="monthsToShow" 
                                                 class="px-3 py-2 border-2 border-indigo-300 rounded-lg focus:border-indigo-500 focus:outline-none font-semibold text-sm bg-white">
                                                 <option :value="4">近 4 月</option>
+                                                <option :value="6" selected>近 6 月</option>   <!-- ✅ 新增這行 -->
                                                 <option :value="8">近 8 月</option>
                                                 <option :value="12">近 12 月</option>
                                                 <option :value="16">近 16 月</option>
@@ -291,8 +292,9 @@
                                                 <option :value="24">近 24 月</option>
                                             </select>
                                         </div>
-                                        <button @click="refreshMonthlyStats" :disabled="isLoadingWeeklyStats" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                                            <svg class="w-4 h-4 inline mr-1" :class="{'animate-spin': isLoadingWeeklyStats}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <button  @click="refreshMonthlyStats" 
+                                                :disabled="monthlyRefreshLock" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                                            <svg class="w-4 h-4 inline mr-1" :class="{'animate-spin': monthlyRefreshLock}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                                             </svg>
                                             {{ isLoadingWeeklyStats ? '載入中...' : '刷新數據' }}
@@ -303,12 +305,12 @@
                                 <!-- 參與率統計標籤 -->
                                 <div class="grid grid-cols-3 gap-4 mb-4">
                                     <div class="bg-white rounded-lg p-3 shadow">
-                                        <p class="text-xs text-gray-500 font-semibold mb-1">RR 平均參與</p>
+                                        <p class="text-xs text-gray-500 font-semibold mb-1">2000 平均參與</p>
                                         <p class="text-2xl font-bold text-red-600">{{ weeklyStatsLabel.rr_avg }}%</p>
                                         <p class="text-xs text-gray-500 mt-1">平均 {{ weeklyStatsLabel.rr_votes }} 票</p>
                                     </div>
                                     <div class="bg-white rounded-lg p-3 shadow">
-                                        <p class="text-xs text-gray-500 font-semibold mb-1">輪班 平均參與</p>
+                                        <p class="text-xs text-gray-500 font-semibold mb-1">3000 平均參與</p>
                                         <p class="text-2xl font-bold text-blue-600">{{ weeklyStatsLabel.shift_avg }}%</p>
                                         <p class="text-xs text-gray-500 mt-1">平均 {{ weeklyStatsLabel.shift_votes }} 票</p>
                                     </div>
@@ -429,7 +431,7 @@
                                                 <!-- RR 配額 -->
                                                 <div class="bg-white rounded-lg p-4 shadow">
                                                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                                                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs mr-2">RR</span>
+                                                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs mr-2">2000</span>
                                                         每月投票配額
                                                     </label>
                                                     <div class="flex items-center space-x-3">
@@ -446,7 +448,7 @@
                                                 <!-- 輪班配額 -->
                                                 <div class="bg-white rounded-lg p-4 shadow">
                                                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">輪班</span>
+                                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">3000</span>
                                                         每月投票配額
                                                     </label>
                                                     <div class="flex items-center space-x-3">

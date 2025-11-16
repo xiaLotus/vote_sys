@@ -132,7 +132,7 @@
                       >
                       <span class="text-white/60">•</span>
                       <span
-                        :class="currentVoter.shift_type === 'RR' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
+                        :class="currentVoter.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
                         class="px-3 py-1 rounded-full text-xs font-bold"
                       >
                         {{ currentVoter.shift_type }}
@@ -267,7 +267,7 @@
                 <div class="flex items-center space-x-1.5">
                   <span class="font-bold text-gray-700">您的身份:</span>
                   <span
-                    :class="currentVoter.shift_type === 'RR' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
+                    :class="currentVoter.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
                     class="px-2.5 py-0.5 rounded-full font-bold"
                     >{{ currentVoter.shift_type }}</span
                   >
@@ -276,7 +276,7 @@
                 <div class="flex items-center space-x-1.5">
                   <span class="font-bold text-gray-700">可投票對象:</span>
                   <span class="text-amber-600 font-bold"
-                    >{{ targetShift }}</span
+                    >{{ displayTargetShift }}</span
                   >
                 </div>
                 <span class="text-gray-400">•</span>
@@ -408,7 +408,7 @@
                       </div>
                       <div class="flex items-center space-x-2 flex-shrink-0">
                         <span
-                          :class="candidate.shift_type === 'RR' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
+                          :class="candidate.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
                           class="px-2 py-0.5 rounded-full text-xs font-bold"
                         >
                           {{ candidate.shift_type }}
@@ -612,6 +612,12 @@
           },
           selectedCount() {
             return this.selectedCandidates.length;
+          },
+          displayTargetShift() {
+            // targetShift 原始值仍是 'RR'/'輪班'（因來自 check_status API 的 shift_type）
+            // 但為了安全，也支援新值
+            const map = { 'RR': '2000', '輪班': '3000', '2000': '2000', '3000': '3000' };
+            return map[this.targetShift] || this.targetShift;
           }
         },
         watch: {
@@ -690,7 +696,7 @@
               };
               console.log('currentVoter 已設置:', this.currentVoter);
               
-              this.targetShift = statusData.shift_type === "RR" ? "輪班" : "RR";
+              this.targetShift = statusData.shift_type === "2000" ? "3000" : "2000";
               console.log('目標班別:', this.targetShift);
 
               const { year: year2, month: month2 } = this.getCurrentYearMonth();
@@ -850,7 +856,7 @@
                 // 顯示投票成功訊息
                 await Swal.fire({
                   title: "✅ 投票成功!",
-                  html: `感謝您的參與<br><br>您已成功投出 <strong class="text-amber-600">${data.voted_count}</strong> 票<br>
+                  html: `感謝您的參與<br><br>您已成功投出 <strong class="text-amber-600">${this.selectedCandidates.length}</strong> 票<br>
                         本月已使用 <strong class="text-amber-600">${this.votesUsed}/${this.maxVotes}</strong> 票`,
                   icon: "success",
                   timer: 2000,

@@ -1,14 +1,4 @@
-const { createApp } = Vue;
-
-// 工具函數：獲取當前年月
-function getCurrentYearMonth() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    return { year, month };
-}
-
-createApp({
+const app = Vue.createApp({
     data() {
         return {
             loginEmpId: '',
@@ -40,6 +30,7 @@ createApp({
             },
             weeklyChart: null,
             monthsToShow: 6, // 預設顯示 6 月
+            monthlyRefreshLock: false, // 🔒 防連續刷新鎖
             weeklyStatsLabel: {
                 rr_avg: 0,
                 shift_avg: 0,
@@ -116,24 +107,22 @@ createApp({
         },
     },
     watch: {
+        // ✅ 修正：監聽 monthsToShow，移除 weeksToShow
+        monthsToShow: {
+            handler() {
+                if (this.currentTab === 'weekly') {
+                    this.refreshMonthlyStats(); // 呼叫帶 SweetAlert 的版本
+                }
+            },
+            immediate: false
+        },
+        
         currentTab(newTab) {
             if (newTab === 'weekly') {
                 this.$nextTick(() => {
-                    this.loadMonthlyStats();  // ✅ 改為 loadMonthlyStats
+                    this.loadMonthlyStats(); // 初次進入 tab 時載入
                 });
             }
-        },
-        weeksToShow(newValue) {
-            // 使用防抖機制處理快速切換
-            if (this.loadWeeklyStatsTimeout) {
-                clearTimeout(this.loadWeeklyStatsTimeout);
-            }
-            
-            this.loadWeeklyStatsTimeout = setTimeout(() => {
-                if (this.currentTab === 'weekly') {
-                    this.loadMonthlyStats();  // ✅ 改為 loadMonthlyStats
-                }
-            }, 350);
         }
     },
     async mounted() {
@@ -242,7 +231,7 @@ createApp({
         },
         async loadStatistics() {
             try {
-                const { year, month } = getCurrentYearMonth();
+                const { year, month } = this.getCurrentYearMonth();
                 const response = await fetch(`http://127.0.0.1:5000/api/vote_stats?year=${year}&month=${month}`);
                 const data = await response.json();
                 
@@ -260,9 +249,16 @@ createApp({
                 this.shiftRanking = [];
             }
         },
+        getCurrentYearMonth() {
+            const now = new Date();
+            return {
+                year: now.getFullYear(),
+                month: now.getMonth() + 1  // 不用 padStart，因後端 API 接收數字
+            };
+        },
         async loadEmployees() {
             try {
-                const { year, month } = getCurrentYearMonth();
+                const { year, month } = this.getCurrentYearMonth();
                 const response = await fetch(`http://127.0.0.1:5000/api/employees?year=${year}&month=${month}`);
                 const data = await response.json();
                 
@@ -302,7 +298,7 @@ createApp({
         },
         async loadVotes() {
             try {
-                const { year, month } = getCurrentYearMonth();
+                const { year, month } = this.getCurrentYearMonth();
                 const response = await fetch(`http://127.0.0.1:5000/api/votes?year=${year}&month=${month}`);
                 const data = await response.json();
                 
@@ -367,14 +363,61 @@ createApp({
         },
 
         async refreshMonthlyStats() {
-            if (this.loadWeeklyStatsTimeout) {
-                clearTimeout(this.loadWeeklyStatsTimeout);
+            // 🔒 防連續點擊
+            if (this.monthlyRefreshLock) {
+                Swal.fire({
+                    icon: 'info',
+                    title: '請稍候',
+                    text: '資料載入中…請等待上一次操作完成',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                return;
             }
-            
-            this.loadWeeklyStatsTimeout = setTimeout(() => {
-                console.log('手動刷新每月統計');
-                this.loadMonthlyStats();  // ✅ 改為 loadMonthlyStats
-            }, 300);
+
+            this.monthlyRefreshLock = true;
+
+            // 🟡 Step 1: Loading 提示
+            const loadingAlert = Swal.fire({
+                title: '載入中…',
+                html: `正在取得 <strong>${this.monthsToShow} 個月</strong> 的參與率趨勢`,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            try {
+                // 🟢 Step 2: 執行真正刷新
+                await this.loadMonthlyStats(); // ← 注意：不再包裝，直接 call
+
+                // 🟢 Step 3: 成功 + 顯示「✅ 完成」提示（關鍵！）
+                await Swal.fire({
+                    icon: 'success',
+                    title: '更新完成！',
+                    html: `已成功載入 <strong>${this.monthsToShow} 個月</strong> 數據`,
+                    timer: 1200,
+                    showConfirmButton: false,
+                    timerProgressBar: true,
+                    didOpen: () => Swal.showLoading(),
+                    willClose: () => Swal.hideLoading()
+                });
+
+            } catch (error) {
+                // 🔴 Step 4: 失敗提示
+                console.error('每月趨勢刷新失敗:', error);
+                await Swal.fire({
+                    icon: 'error',
+                    title: '更新失敗',
+                    text: '請檢查網路或伺服器狀態',
+                    confirmButtonColor: '#ef4444'
+                });
+            } finally {
+                // 🔓 解鎖
+                this.monthlyRefreshLock = false;
+                // 確保 loading 關掉（防異常）
+                if (Swal.isVisible()) Swal.close();
+            }
         },
         validateAndFillMonthlyData(data) {
             const labels = data.labels || [];
@@ -461,16 +504,16 @@ createApp({
                         labels: data.labels,
                         datasets: [
                             {
-                                label: 'RR 參與率',
-                                data: data.rr_rates,
+                                label: '2000 參與率',
+                                data: data.rr_rates,        // 2000 班別資料
                                 borderColor: 'rgb(239, 68, 68)',
                                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
                                 tension: 0.4,
                                 fill: true
                             },
                             {
-                                label: '輪班參與率',
-                                data: data.shift_rates,
+                                label: '3000 參與率',
+                                data: data.shift_rates,     // 3000 班別資料
                                 borderColor: 'rgb(59, 130, 246)',
                                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                                 tension: 0.4,
@@ -693,8 +736,8 @@ createApp({
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        rr_quota: this.quotas.rr,
-                        shift_quota: this.quotas.shift
+                        quota_2000: this.quotas.rr,
+                        quota_3000: this.quotas.shift
                     })
                 });
 
@@ -744,8 +787,8 @@ createApp({
             try {
                 const response = await fetch('http://127.0.0.1:5000/api/quotas');
                 const data = await response.json();
-                this.quotas.rr = data.rr_quota;
-                this.quotas.shift = data.shift_quota;
+                this.quotas.rr = data.quota_2000;
+                this.quotas.shift = data.quota_3000;
             } catch (error) {
                 console.error('載入配額失敗', error);
             }
@@ -783,7 +826,7 @@ createApp({
             }
 
             try {
-                const { year, month } = getCurrentYearMonth();
+                const { year, month } = this.getCurrentYearMonth();
                 const response = await fetch('http://127.0.0.1:5000/api/reset', {
                     method: 'POST',
                     headers: {
@@ -857,7 +900,7 @@ createApp({
 
             if (result.isConfirmed) {
                 try {
-                    const { year, month } = getCurrentYearMonth();
+                    const { year, month } = this.getCurrentYearMonth();
                     const response = await fetch('http://127.0.0.1:5000/api/load_employees', {
                         method: 'POST',
                         headers: {
@@ -935,9 +978,33 @@ createApp({
             link.download = `投票記錄_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
         },
-         getCurrentYearMonth() {
-            const now = new Date();
-            return { year: now.getFullYear(), month: now.getMonth() + 1 };
-        }
+        //  getCurrentYearMonth() {
+        //     const now = new Date();
+        //     return { year: now.getFullYear(), month: now.getMonth() + 1 };
+        // },
+          // ✅ 新增：帶 SweetAlert 的載入流程
+        async loadMonthlyStatsWithAlert(months = this.monthsToShow) {
+            // 顯示 SweetAlert loading（非阻塞）
+            const alert = Swal.fire({
+            title: '載入中…',
+            html: `正在取得 <strong>${months} 個月</strong> 的參與率趨勢`,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => Swal.showLoading()
+            });
+
+            try {
+            // 臨時覆寫 monthsToShow 以確保一致性（可選）
+            this.monthsToShow = months;
+            await this.loadMonthlyStats(); // 原有邏輯不變
+            } catch (e) {
+            console.error('載入失敗:', e);
+            } finally {
+            // 無論成功失敗，都關閉 SweetAlert
+            if (Swal.isVisible()) Swal.close();
+            }
+        },
     }
-}).mount('#app');
+})
+app.mount('#app');
