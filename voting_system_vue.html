@@ -791,6 +791,22 @@
             }
           },
           async submitVote() {
+            // 檢查日期限制（每月10-18號才能投票）
+            const today = new Date().getDate();
+            if (today < 10 || today > 18) {
+              Swal.fire({
+                title: "⏳ 投票期間限制",
+                html: `投票期間為每月 <strong>10-18 號</strong><br><br>今天是 <strong class="text-2xl text-red-600">${today} 號</strong><br><br>請於投票期間內再來投票`,
+                icon: "warning",
+                confirmButtonColor: "#d97706",
+                confirmButtonText: "知道了",
+                customClass: {
+                  popup: "rounded-2xl",
+                  confirmButton: "rounded-lg px-6 py-3",
+                },
+              });
+              return;
+            }
             if (!this.canVote) {
               this.errorMessage = this.voteRestrictionMessage;
               return;
