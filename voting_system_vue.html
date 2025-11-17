@@ -986,9 +986,23 @@
               );
               const data = await response.json();
 
+              // 將targetShift轉換為後端使用的格式
+              const shiftMap = {
+                '2000': 'RR',
+                '3000': '輪班',
+                'RR': 'RR',
+                '輪班': '輪班'
+              };
+              const targetShiftFormatted = shiftMap[this.targetShift] || this.targetShift;
+              
+              console.log('過濾條件:', 'targetShift =', this.targetShift, '->', targetShiftFormatted);
+              console.log('原始統計數據:', data.vote_stats);
+
               this.leaderboard = data.vote_stats
-                .filter((stat) => stat.shift_type === this.targetShift)
+                .filter((stat) => stat.shift_type === targetShiftFormatted)
                 .slice(0, 5);
+              
+              console.log('過濾後的排行榜:', this.leaderboard);
             } catch (error) {
               console.error("載入統計失敗", error);
             }
