@@ -6,7 +6,8 @@ import os
 import csv
 import configparser
 from pathlib import Path
-
+from ldap3 import Server, Connection, ALL, NTLM # type: ignore
+from ldap3.core.exceptions import LDAPException, LDAPBindError # type: ignore
 from loguru import logger
 
 app = Flask(__name__)
@@ -795,14 +796,28 @@ def check_status(emp_id):
 
 # 用戶認證函數
 def authenticate_user(username, password):
-    """驗證用戶登入"""
     try:
-        # ✅ 測試模式：所有登入都允許
-        logger.info(f"{username} 成功登入")
+        # server = Server('ldap://KHADDC02.kh.asegroup.com', get_info = ALL)
+        # # 使用 NTLM
+        # user = f'kh\\{username}'
+        # password = f'{password}'
+
+        # print("帳號: ", username, " 密碼: ", password)
+        # # 建立連接
+        # conn = Connection(server, user = user, password = password, authentication = NTLM)
+
+        # # 嘗試綁定
+        # if conn.bind():
+        #     # app.logger.info(f"User {username} login successful.")
+        #     return True
+        # else:
+        #     # app.logger.warning(f"Login failed for user {username}: {conn.last_error}")
+        #     return False
         return True
     except Exception as e:
-        logger.error(f"拋出異常的使用者: {username}, 異常為: {str(e)}")
+        # app.logger.error(f"Error during authentication for user {username}: {e}")
         return False
+
 
 @app.route('/api/login', methods=['POST'])
 def login():
