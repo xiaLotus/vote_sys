@@ -251,8 +251,8 @@ def load_employees_from_json(year=None, month=None):
                 logger.error(f"❌ 第 {i+1} 筆員工資料缺少欄位: {missing_fields}")
                 return False
             
-            # ✅ 新增: 驗證班別是否有效
-            if emp['班別'] not in ['2000', '3000', 'RR', '輪班']:
+            # 驗證班別是否有效（只允許 2000 或 3000）
+            if emp['班別'] not in ['2000', '3000']:
                 logger.warning(f"⚠️ 第 {i+1} 筆員工 {emp['工號']} 的班別 '{emp['班別']}' 無效,將使用預設值 2000")
         
         employees_file = get_employees_file(year, month)
@@ -260,25 +260,19 @@ def load_employees_from_json(year=None, month=None):
         # 檢查是否已有資料
         existing = read_csv(employees_file)
 
-        # 班別轉換表(統一成 2000 / 3000)
-        shift_map = {
-            'RR': '2000',
-            '輪班': '3000',
-            '2000': '2000',
-            '3000': '3000'
-        }
-        
         if len(existing) == 0:
             # 插入員工資料
             employee_data = []
             for emp in employees:
-                shift_raw = emp.get('班別', '2000')
-                shift_final = shift_map.get(shift_raw, '2000')  # 預設 2000 防呆
+                shift_type = emp.get('班別', '2000')
+                # 只允許 2000 或 3000
+                if shift_type not in ['2000', '3000']:
+                    shift_type = '2000'
 
                 employee_data.append({
                     'emp_id': emp['工號'],
                     'name': emp['姓名'],
-                    'shift_type': shift_final,  # 🔥 統一寫入 2000 / 3000
+                    'shift_type': shift_type,
                     'has_voted': '0',
                     'last_vote_time': ''
                 })
@@ -319,15 +313,8 @@ def can_vote(emp_id, shift_type, year=None, month=None):
     quota = get_quota()
     votes_used = get_or_create_monthly_votes(emp_id, shift_type, year, month)
     
-    # ✅ 原始 shift_type ('RR'/'輪班') → 顯示名稱 ('2000'/'3000') → 取對應配額
-    shift_display_map = {
-        'RR': '2000',
-        '輪班': '3000',
-        '2000': '2000',
-        '3000': '3000'
-    }
-    display_shift = shift_display_map.get(shift_type, '2000')
-    max_votes = quota[display_shift]
+    # 直接使用 shift_type (2000/3000) 取得對應配額
+    max_votes = quota.get(shift_type, quota['2000'])
     
     if votes_used < max_votes:
         return True, None, votes_used, max_votes
@@ -381,22 +368,7 @@ def get_available_months():
     
     return months
 
-# 班別統一映射
-def normalize_shift(shift_type):
-    """
-    將所有班別轉換為一致的顯示格式：
-    2000 → RR
-    3000 → 輪班
-    RR → RR
-    輪班 → 輪班
-    """
-    mapping = {
-        '2000': 'RR',
-        '3000': '輪班',
-        'RR': 'RR',
-        '輪班': '輪班'
-    }
-    return mapping.get(shift_type, shift_type)
+# 班別統一處理已移除，直接使用 2000/3000
 
 @app.route('/api/rebuild_monthly_votes', methods=['POST'])
 def api_rebuild_monthly_votes():
@@ -444,14 +416,13 @@ def get_employees():
     employees = read_csv(employees_file)
     quota = get_quota()
 
-    # ★ 班別防呆表
+    # ★ 班別防呆表（只允许 2000/3000）
     shift_fix = {
-        "RR": "2000",
-        "輪班": "3000",
         "2000": "2000",
         "3000": "3000",
-        "": "2000"   # 空值也給預設
+        "": "2000"   # 空值給預設
     }
+
 
     result = []
     for emp in employees:
@@ -576,36 +547,60 @@ def get_vote_stats():
         year = now.year
         month = now.month
 
+    # 从 emoinfo.json 加载员工信息，建立工号到班别的映射
+    try:
+        with open('emoinfo.json', 'r', encoding='utf-8-sig') as f:
+            employees_info = json.load(f)
+        
+        # 建立工号 -> 班别的映射字典
+        emp_shift_map = {}
+        for emp in employees_info:
+            emp_id = emp.get('工號')
+            shift = emp.get('班別', '2000')  # 默认 2000
+            emp_shift_map[emp_id] = shift
+        
+        logger.info(f"✅ 从 emoinfo.json 加载了 {len(emp_shift_map)} 位员工的班别信息")
+        
+    except Exception as e:
+        logger.error(f"❌ 读取 emoinfo.json 失败: {str(e)}")
+        emp_shift_map = {}
+
     vote_file = get_month_file(year, month)
     all_votes = read_csv(vote_file)
 
-    rr_votes = {}
-    shift_votes = {}
+    votes_2000 = {}  # 2000班排行榜
+    votes_3000 = {}  # 3000班排行榜
 
     for vote in all_votes:
-        shift = vote.get('voted_for_shift')  # 2000 or 3000
-
-        target_dict = rr_votes if shift == '2000' else shift_votes
-
         vid = vote['voted_for_emp_id']
+        
+        # 从 emoinfo.json 获取该员工的班别
+        shift = emp_shift_map.get(vid, '2000')  # 如果找不到，默认 2000
+        
+        # 根据班别选择对应的字典
+        target_dict = votes_2000 if shift == '2000' else votes_3000
+
         if vid not in target_dict:
             target_dict[vid] = {
                 'emp_id': vid,
                 'name': vote['voted_for_name'],
                 'vote_count': 0,
-                'shift_type': shift  # ★ 回傳數字
+                'shift_type': shift
             }
 
         target_dict[vid]['vote_count'] += 1
 
-    rr_ranking = sorted(rr_votes.values(), key=lambda x: x['vote_count'], reverse=True)
-    shift_ranking = sorted(shift_votes.values(), key=lambda x: x['vote_count'], reverse=True)
+    # 排序取 TOP 排行
+    ranking_2000 = sorted(votes_2000.values(), key=lambda x: x['vote_count'], reverse=True)
+    ranking_3000 = sorted(votes_3000.values(), key=lambda x: x['vote_count'], reverse=True)
+
+    logger.info(f"📊 統計完成: 2000班 {len(ranking_2000)} 人, 3000班 {len(ranking_3000)} 人")
 
     return jsonify({
         'year': year,
         'month': month,
-        'rr_ranking': rr_ranking,
-        'shift_ranking': shift_ranking
+        'rr_ranking': ranking_2000,      # 2000班排行榜
+        'shift_ranking': ranking_3000    # 3000班排行榜
     })
 
 
@@ -629,8 +624,8 @@ def get_monthly_participation():
 
     # fallback 最新月份
     fallback_employees = read_csv(get_employees_file(now.year, now.month))
-    fallback_total_rr = sum(1 for emp in fallback_employees if normalize_shift(emp.get('shift_type')) == 'RR')
-    fallback_total_shift = sum(1 for emp in fallback_employees if normalize_shift(emp.get('shift_type')) == '輪班')
+    fallback_total_rr = sum(1 for emp in fallback_employees if emp.get('shift_type') == '2000')
+    fallback_total_shift = sum(1 for emp in fallback_employees if emp.get('shift_type') == '3000')
 
     labels = []
     rr_rates = []
@@ -646,8 +641,8 @@ def get_monthly_participation():
 
         employees = read_csv(get_employees_file(year, month))
 
-        total_rr = sum(1 for emp in employees if normalize_shift(emp.get('shift_type')) == 'RR')
-        total_shift = sum(1 for emp in employees if normalize_shift(emp.get('shift_type')) == '輪班')
+        total_rr = sum(1 for emp in employees if emp.get('shift_type') == '2000')
+        total_shift = sum(1 for emp in employees if emp.get('shift_type') == '3000')
         total_employees = total_rr + total_shift
 
         if total_rr == 0:
@@ -659,12 +654,12 @@ def get_monthly_participation():
 
         monthly_votes = read_csv(get_monthly_votes_file(year, month))
 
-        rr_count = len([r for r in monthly_votes if normalize_shift(r.get('shift_type')) == 'RR' and int(r.get('votes_used', 0)) > 0])
-        shift_count = len([r for r in monthly_votes if normalize_shift(r.get('shift_type')) == '輪班' and int(r.get('votes_used', 0)) > 0])
+        rr_count = len([r for r in monthly_votes if r.get('shift_type') == '2000' and int(r.get('votes_used', 0)) > 0])
+        shift_count = len([r for r in monthly_votes if r.get('shift_type') == '3000' and int(r.get('votes_used', 0)) > 0])
 
         all_votes = read_csv(get_month_file(year, month))
-        rr_vote_count = sum(1 for v in all_votes if normalize_shift(v.get('voter_shift')) == 'RR')
-        shift_vote_count = sum(1 for v in all_votes if normalize_shift(v.get('voter_shift')) == '輪班')
+        rr_vote_count = sum(1 for v in all_votes if v.get('voter_shift') == '2000')
+        shift_vote_count = sum(1 for v in all_votes if v.get('voter_shift') == '3000')
 
         rr_rates.append(min(100, round((rr_count / total_rr) * 100, 1)))
         shift_rates.append(min(100, round((shift_count / total_shift) * 100, 1)))
@@ -775,7 +770,7 @@ def check_status(emp_id):
 
     # ✅ 關鍵修正:原始值 → 統一轉 2000/3000 再回傳
     shift_raw = emp['shift_type']
-    shift_display_map = {'RR': '2000', '輪班': '3000', '2000': '2000', '3000': '3000'}
+    shift_display_map = {'2000': '2000', '3000': '3000', '2000': '2000', '3000': '3000'}
     display_shift = shift_display_map.get(shift_raw, '2000')
 
     can_vote_now, msg, votes_used, max_votes = can_vote(emp_id, shift_raw, year, month)
@@ -859,22 +854,22 @@ def get_candidates(emp_id):
         return jsonify({'error': '工號不存在,請確認您的工號'}), 404
     
     voter = employees[emp_id]
-    voter_shift = normalize_shift(voter['shift_type'])
+    voter_shift = voter['shift_type']
 
     can_vote_now, error_message, votes_used, max_votes = can_vote(emp_id, voter['shift_type'], year, month)
     
     if not can_vote_now:
         return jsonify({'error': error_message}), 400
     
-    target_shift = 'RR' if voter_shift == '輪班' else '輪班'
+    target_shift = '2000' if voter_shift == '3000' else '3000'
     
     candidates = []
     for e_id, emp in employees.items():
-        if normalize_shift(emp['shift_type']) == target_shift:
+        if emp['shift_type'] == target_shift:
             candidates.append({
                 'emp_id': emp['emp_id'],
                 'name': emp['name'],
-                'shift_type': normalize_shift(emp['shift_type'])
+                'shift_type': emp['shift_type']
             })
     
     return jsonify({
@@ -965,7 +960,7 @@ def get_statistics():
                     'emp_id': voted_for_id,
                     'name': vote['voted_for_name'],
                     # 統一輸出 RR / 輪班
-                    'shift_type': normalize_shift(vote['voted_for_shift']),
+                    'shift_type': vote['voted_for_shift'],
                     'vote_count': 0
                 }
             vote_counts[voted_for_id]['vote_count'] += 1

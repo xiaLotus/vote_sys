@@ -8,8 +8,8 @@ const app = Vue.createApp({
                 emp_id: '',
                 name: '載入中...'
             },
-            rrRanking: [],
-            shiftRanking: [],
+            ranking_2000: [],  // 2000班排行榜
+            ranking_3000: [],  // 3000班排行榜
             isAdmin: false,
             currentTab: 'employees',
             statistics: {
@@ -25,18 +25,16 @@ const app = Vue.createApp({
             searchQuery: '',  // 添加這行
             employeeSearch: '',
             quotas: {
-                rr: 1,
-                shift: 1
+                quota_2000: 3,
+                quota_3000: 2
             },
             weeklyChart: null,
             monthsToShow: 6, // 預設顯示 6 月
             monthlyRefreshLock: false, // 🔒 防連續刷新鎖
             weeklyStatsLabel: {
-                rr_avg: 0,
-                shift_avg: 0,
                 total_avg: 0,
-                rr_votes: 0,
-                shift_votes: 0,
+                shift_2000_votes: 0,
+                shift_3000_votes: 0,
                 total_votes: 0
             },
             isLoadingWeeklyStats: false, // 加載狀態
@@ -237,16 +235,17 @@ const app = Vue.createApp({
                 
                 console.log('統計數據:', data);
                 
-                // 確保數據存在
-                this.rrRanking = Array.isArray(data.rr_ranking) ? data.rr_ranking : [];
-                this.shiftRanking = Array.isArray(data.shift_ranking) ? data.shift_ranking : [];
+                // 獲取兩個班別的排行榜，各取 TOP 10
+                this.ranking_2000 = Array.isArray(data.rr_ranking) ? data.rr_ranking.slice(0, 10) : [];
+                this.ranking_3000 = Array.isArray(data.shift_ranking) ? data.shift_ranking.slice(0, 10) : [];
                 
-                console.log('RR排行榜:', this.rrRanking);
-                console.log('輪班排行榜:', this.shiftRanking);
+                console.log('2000班 TOP 10:', this.ranking_2000);
+                console.log('3000班 TOP 10:', this.ranking_3000);
+                
             } catch (error) {
                 console.error('載入統計失敗', error);
-                this.rrRanking = [];
-                this.shiftRanking = [];
+                this.ranking_2000 = [];
+                this.ranking_3000 = [];
             }
         },
         getCurrentYearMonth() {
@@ -713,8 +712,8 @@ const app = Vue.createApp({
             if (!this.isAdmin) return;
 
             // 驗證配額範圍
-            if (this.quotas.rr < 1 || this.quotas.rr > 10 || 
-                this.quotas.shift < 1 || this.quotas.shift > 10) {
+            if (this.quotas.quota_2000 < 1 || this.quotas.quota_2000 > 10 || 
+                this.quotas.quota_3000 < 1 || this.quotas.quota_3000 > 10) {
                 Swal.fire({
                     title: '配額錯誤',
                     text: '配額必須在 1-10 之間',
@@ -736,8 +735,8 @@ const app = Vue.createApp({
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        quota_2000: this.quotas.rr,
-                        quota_3000: this.quotas.shift
+                        quota_2000: this.quotas.quota_2000,
+                        quota_3000: this.quotas.quota_3000
                     })
                 });
 
@@ -787,8 +786,8 @@ const app = Vue.createApp({
             try {
                 const response = await fetch('http://127.0.0.1:5000/api/quotas');
                 const data = await response.json();
-                this.quotas.rr = data.quota_2000;
-                this.quotas.shift = data.quota_3000;
+                this.quotas.quota_2000 = data.quota_2000;
+                this.quotas.quota_3000 = data.quota_3000;
             } catch (error) {
                 console.error('載入配額失敗', error);
             }
