@@ -224,9 +224,9 @@
                           <p class="text-sm opacity-80">{{ item.emp_id }}</p>
                           <!-- ✅ 新增：班別標籤 -->
                           <span 
-                            :class="item.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
+                            :class="item.shift_type === 'RR' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
                             class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold">
-                            {{ item.shift_type }}
+                            {{ item.shift_type === 'RR' ? '2000' : '3000' }}
                           </span>
                         </div>
                       </div>
@@ -625,6 +625,7 @@
             voteRestrictionMessage: "",
             votesUsed: 0,
             maxVotes: 1,
+            votedForIds: [],   // 🆕 新增:本月已投過的候選人工號清單
           };
         },
         computed: {
@@ -648,8 +649,10 @@
             return this.selectedCandidates.length;
           },
           displayTargetShift() {
-            // 直接使用 targetShift (2000/3000)
-            return this.targetShift;
+            // targetShift 原始值仍是 'RR'/'輪班'（因來自 check_status API 的 shift_type）
+            // 但為了安全，也支援新值
+            const map = { 'RR': '2000', '輪班': '3000', '2000': '2000', '3000': '3000' };
+            return map[this.targetShift] || this.targetShift;
           }
         },
         watch: {
@@ -696,7 +699,82 @@
             return { year: now.getFullYear(), month: now.getMonth() + 1 };
           },
           
-          async loadData() {
+          // async loadData() {
+          //   const empId = this.empId.toUpperCase();
+          //   console.log('=== loadData 開始 ===');
+          //   console.log('empId:', empId);
+
+          //   try {
+          //     const { year, month } = this.getCurrentYearMonth();
+          //     console.log('查詢年月:', year, month);
+              
+          //     const statusUrl = `http://127.0.0.1:5000/api/check_status/${empId}?year=${year}&month=${month}`;
+          //     console.log('請求 URL:', statusUrl);
+              
+          //     const statusResponse = await fetch(statusUrl);
+          //     console.log('狀態響應:', statusResponse.status, statusResponse.ok);
+              
+          //     const statusData = await statusResponse.json();
+          //     console.log('狀態數據:', statusData);
+
+          //     if (!statusResponse.ok) {
+          //       console.error('❌ 狀態檢查失敗，跳轉到登入頁');
+          //       window.location.href = "login.html";
+          //       return;
+          //     }
+
+          //     console.log('設置 currentVoter...');
+          //     this.currentVoter = {
+          //       emp_id: empId,
+          //       name: statusData.name,
+          //       shift_type: statusData.shift_type,
+          //     };
+          //     console.log('currentVoter 已設置:', this.currentVoter);
+              
+          //     this.targetShift = statusData.shift_type === "2000" ? "3000" : "2000";
+          //     console.log('目標班別:', this.targetShift);
+
+          //     const { year: year2, month: month2 } = this.getCurrentYearMonth();
+          //     const empResponse = await fetch(
+          //       `http://127.0.0.1:5000/api/employees?year=${year2}&month=${month2}`
+          //     );
+          //     const employees = await empResponse.json();
+          //     console.log('員工總數:', employees.length);
+              
+          //     this.candidates = employees.filter(
+          //       (e) => e.shift_type === this.targetShift
+          //     );
+          //     console.log('候選人數量:', this.candidates.length);
+              
+          //     this.filteredCandidates = this.candidates;
+
+          //     if (statusData.can_vote) {
+          //       this.canVote = true;
+          //       this.voteRestrictionMessage = "";
+          //       this.votesUsed = statusData.votes_used || 0;
+          //       this.maxVotes = statusData.max_votes || 1;
+          //       console.log('✅ 可以投票，已用:', this.votesUsed, '配額:', this.maxVotes);
+          //     } else {
+          //       this.canVote = false;
+          //       this.voteRestrictionMessage =
+          //         statusData.message || "投票功能暫時無法使用";
+          //       this.votesUsed = statusData.votes_used || 0;
+          //       this.maxVotes = statusData.max_votes || 1;
+          //       console.log('❌ 無法投票:', this.voteRestrictionMessage);
+          //     }
+
+          //     await this.loadStatistics();
+          //     this.isLoading = false;
+          //     console.log('=== loadData 完成 ===');
+          //   } catch (error) {
+          //     console.error("❌ loadData 失敗:", error);
+          //     console.error("錯誤堆疊:", error.stack);
+          //     alert('載入失敗：' + error.message + '\n即將返回登入頁');
+          //     window.location.href = "login.html";
+          //   }
+          // },
+
+         async loadData() {
             const empId = this.empId.toUpperCase();
             console.log('=== loadData 開始 ===');
             console.log('empId:', empId);
@@ -704,13 +782,13 @@
             try {
               const { year, month } = this.getCurrentYearMonth();
               console.log('查詢年月:', year, month);
-              
+
               const statusUrl = `http://127.0.0.1:5000/api/check_status/${empId}?year=${year}&month=${month}`;
               console.log('請求 URL:', statusUrl);
-              
+
               const statusResponse = await fetch(statusUrl);
               console.log('狀態響應:', statusResponse.status, statusResponse.ok);
-              
+
               const statusData = await statusResponse.json();
               console.log('狀態數據:', statusData);
 
@@ -727,7 +805,7 @@
                 shift_type: statusData.shift_type,
               };
               console.log('currentVoter 已設置:', this.currentVoter);
-              
+
               this.targetShift = statusData.shift_type === "2000" ? "3000" : "2000";
               console.log('目標班別:', this.targetShift);
 
@@ -737,13 +815,17 @@
               );
               const employees = await empResponse.json();
               console.log('員工總數:', employees.length);
-              
+
               this.candidates = employees.filter(
                 (e) => e.shift_type === this.targetShift
               );
               console.log('候選人數量:', this.candidates.length);
-              
+
               this.filteredCandidates = this.candidates;
+
+              // 🆕 儲存本月已投過的候選人清單(後端新回傳的欄位)
+              this.votedForIds = statusData.voted_for_ids || [];
+              console.log('📋 本月已投過:', this.votedForIds);
 
               if (statusData.can_vote) {
                 this.canVote = true;
@@ -769,7 +851,7 @@
               alert('載入失敗：' + error.message + '\n即將返回登入頁');
               window.location.href = "login.html";
             }
-          },
+          }, 
 
           logout() {
             if (confirm("確定要登出嗎?")) {
@@ -800,11 +882,49 @@
           window.location.href = targetUrl;
         },
 
+          // selectCandidate(candidate) {
+          //   if (!this.canVote) return;
+            
+          //   const index = this.selectedCandidates.findIndex(c => c.emp_id === candidate.emp_id);
+            
+          //   if (index > -1) {
+          //     // 如果已經選擇，則取消選擇
+          //     this.selectedCandidates.splice(index, 1);
+          //     this.errorMessage = '';
+          //   } else {
+          //     // 如果未選擇，檢查是否還能選擇更多
+          //     if (this.canSelectMore) {
+          //       this.selectedCandidates.push(candidate);
+          //       this.errorMessage = '';
+          //     } else {
+          //       this.errorMessage = `最多只能選擇 ${this.remainingVotes} 位候選人`;
+          //       setTimeout(() => {
+          //         this.errorMessage = '';
+          //       }, 3000);
+          //     }
+          //   }
+          // },
           selectCandidate(candidate) {
             if (!this.canVote) return;
-            
+
+            // 🆕 檢查是否已投過此候選人(本月)
+            if (this.votedForIds.includes(candidate.emp_id)) {
+              Swal.fire({
+                title: "⚠️ 已投過此候選人",
+                html: `您本月已經投過 <strong>${candidate.name} (${candidate.emp_id})</strong><br><br>無法重複投票,請選擇其他候選人`,
+                icon: "warning",
+                confirmButtonColor: "#d97706",
+                confirmButtonText: "知道了",
+                customClass: {
+                  popup: "rounded-2xl",
+                  confirmButton: "rounded-lg px-6 py-3",
+                },
+              });
+              return;
+            }
+
             const index = this.selectedCandidates.findIndex(c => c.emp_id === candidate.emp_id);
-            
+
             if (index > -1) {
               // 如果已經選擇，則取消選擇
               this.selectedCandidates.splice(index, 1);
@@ -822,6 +942,213 @@
               }
             }
           },
+
+          // async submitVote() {
+          //   // 檢查日期限制（每月10-18號才能投票）
+          //   const today = new Date().getDate();
+          //   if (today < 10 || today > 18) {
+          //     Swal.fire({
+          //       title: "⏳ 投票期間限制",
+          //       html: `投票期間為每月 <strong>10-18 號</strong><br><br>今天是 <strong class="text-2xl text-red-600">${today} 號</strong><br><br>請於投票期間內再來投票`,
+          //       icon: "warning",
+          //       confirmButtonColor: "#d97706",
+          //       confirmButtonText: "知道了",
+          //       customClass: {
+          //         popup: "rounded-2xl",
+          //         confirmButton: "rounded-lg px-6 py-3",
+          //       },
+          //     });
+          //     return;
+          //   }
+          //   if (!this.canVote) {
+          //     this.errorMessage = this.voteRestrictionMessage;
+          //     return;
+          //   }
+
+          //   if (this.selectedCandidates.length === 0) {
+          //     this.errorMessage = "請至少選擇一位候選人";
+          //     return;
+          //   }
+
+          //   // 生成候選人名單的 HTML
+          //   const candidatesList = this.selectedCandidates
+          //     .map((c, i) => `${i + 1}. <strong>${c.name}</strong> (${c.emp_id})`)
+          //     .join('<br>');
+
+          //   const result = await Swal.fire({
+          //     title: "確認投票",
+          //     html: `確定要投票給以下 <strong class="text-2xl text-amber-600">${this.selectedCandidates.length}</strong> 位候選人嗎?<br><br>
+          //           <div class="text-left bg-amber-50 p-4 rounded-lg my-3">
+          //             ${candidatesList}
+          //           </div>
+          //           <span class="text-red-600">⚠️ 投票後無法修改!</span>`,
+          //     icon: "question",
+          //     showCancelButton: true,
+          //     confirmButtonColor: "#4F46E5",
+          //     cancelButtonColor: "#6B7280",
+          //     confirmButtonText: "確認投票",
+          //     cancelButtonText: "取消",
+          //     customClass: {
+          //       popup: "rounded-2xl",
+          //       confirmButton: "rounded-lg px-6 py-3",
+          //       cancelButton: "rounded-lg px-6 py-3",
+          //     },
+          //   });
+
+          //   if (!result.isConfirmed) {
+          //     return;
+          //   }
+
+          //   try {
+          //     const { year, month } = this.getCurrentYearMonth();
+          //     const response = await fetch("http://127.0.0.1:5000/api/vote", {
+          //       method: "POST",
+          //       headers: { "Content-Type": "application/json" },
+          //       body: JSON.stringify({
+          //         voter_emp_id: this.currentVoter.emp_id,
+          //         voted_for_emp_ids: this.selectedCandidates.map(c => c.emp_id),
+          //         year: year,
+          //         month: month,
+          //       }),
+          //     });
+
+          //     const data = await response.json();
+
+          //     if (response.ok) {
+          //       // 直接使用後端返回的票數
+          //       this.votesUsed = data.votes_used;
+          //       this.maxVotes = data.max_votes;
+          //       const remainingVotes = this.maxVotes - this.votesUsed;
+                
+          //       console.log('投票成功：votes_used:', this.votesUsed, 'max_votes:', this.maxVotes, 'remaining:', remainingVotes);
+                
+          //       // 顯示投票成功訊息
+          //       await Swal.fire({
+          //         title: "✅ 投票成功!",
+          //         html: `感謝您的參與<br><br>您已成功投出 <strong class="text-amber-600">${this.selectedCandidates.length}</strong> 票<br>
+          //               本月已使用 <strong class="text-amber-600">${this.votesUsed}/${this.maxVotes}</strong> 票`,
+          //         icon: "success",
+          //         timer: 2000,
+          //         showConfirmButton: false,
+          //         customClass: {
+          //           popup: "rounded-2xl",
+          //         },
+          //       });
+
+          //       // 清空選擇
+          //       this.selectedCandidates = [];
+          //       this.errorMessage = "";
+
+          //       // 檢查是否還有剩餘票數
+          //       if (remainingVotes > 0) {
+          //         // ✅ 改用 preConfirm 確保跳轉執行
+          //         const continueResult = await Swal.fire({
+          //           title: "📊 還有剩餘票數",
+          //           html: `您本月還有 <strong class="text-2xl text-amber-600">${remainingVotes}</strong> 票可以投<br><br>
+          //                 <div class="text-gray-600 text-sm mt-3">
+          //                   <p>💡 您可以選擇：</p>
+          //                   <p class="mt-2">• <strong>查看統計</strong>：前往統計頁面查看投票結果</p>
+          //                   <p>• <strong>繼續投票</strong>：為其他候選人投票</p>
+          //                 </div>`,
+          //           icon: "info",
+          //           showCancelButton: true,
+          //           showDenyButton: false,
+          //           confirmButtonColor: "#f59e0b",
+          //           cancelButtonColor: "#6366f1",
+          //           confirmButtonText: "📊 查看統計",
+          //           cancelButtonText: "🗳️ 繼續投票",
+          //           allowOutsideClick: false,
+          //           allowEscapeKey: false,
+          //           customClass: {
+          //             popup: "rounded-2xl",
+          //             confirmButton: "rounded-lg px-6 py-3",
+          //             cancelButton: "rounded-lg px-6 py-3",
+          //           },
+          //         });
+
+          //         console.log('用戶選擇結果:', continueResult);
+
+          //         // ✅ 明確處理兩種情況
+          //         if (continueResult.isConfirmed) {
+          //           // 查看統計 - 立即跳轉
+          //           console.log('=== 用戶選擇查看統計 ===');
+          //           const targetUrl = `admin_panel.html?emp_id=${this.currentVoter.emp_id}`;
+          //           console.log('跳轉目標:', targetUrl);
+          //           setTimeout(() => {
+          //             window.location.href = targetUrl;
+          //           }, 300);
+          //         } else {
+          //           // 繼續投票
+          //           console.log('=== 用戶選擇繼續投票 ===');
+          //           await this.loadData();
+          //           this.canVote = true;
+                    
+          //           Swal.fire({
+          //             title: "繼續投票",
+          //             text: `請選擇您要投票的候選人 (剩餘 ${remainingVotes} 票)`,
+          //             icon: "success",
+          //             timer: 1500,
+          //             showConfirmButton: false,
+          //             customClass: {
+          //               popup: "rounded-2xl",
+          //             },
+          //           });
+          //         }
+          //       } else {
+          //         // 已用完所有票數，前往統計頁面
+          //         console.log('=== 所有票數已用完 ===');
+          //         await Swal.fire({
+          //           title: "🎉 已投完所有票數!",
+          //           text: "您本月的投票配額已用完，即將前往統計頁面",
+          //           icon: "success",
+          //           timer: 2000,
+          //           showConfirmButton: false,
+          //           allowOutsideClick: false,
+          //           customClass: {
+          //             popup: "rounded-2xl",
+          //           },
+          //         });
+                  
+          //         // 強制跳轉
+          //         setTimeout(() => {
+          //           const targetUrl = `admin_panel.html?emp_id=${this.currentVoter.emp_id}`;
+          //           console.log('強制跳轉到:', targetUrl);
+          //           window.location.href = targetUrl;
+          //         }, 300);
+          //       }
+          //     } else {
+          //       this.errorMessage = data.error;
+
+          //       Swal.fire({
+          //         title: "投票失敗",
+          //         text: data.error,
+          //         icon: "error",
+          //         confirmButtonColor: "#4F46E5",
+          //         confirmButtonText: "確定",
+          //         customClass: {
+          //           popup: "rounded-2xl",
+          //           confirmButton: "rounded-lg px-6 py-3",
+          //         },
+          //       });
+          //     }
+          //   } catch (error) {
+          //     console.error("投票錯誤:", error);
+          //     this.errorMessage = "投票失敗,請稍後再試";
+
+          //     Swal.fire({
+          //       title: "系統錯誤",
+          //       text: "投票失敗,請稍後再試",
+          //       icon: "error",
+          //       confirmButtonColor: "#4F46E5",
+          //       confirmButtonText: "確定",
+          //       customClass: {
+          //         popup: "rounded-2xl",
+          //         confirmButton: "rounded-lg px-6 py-3",
+          //       },
+          //     });
+          //   }
+          // },
+
           async submitVote() {
             // 檢查日期限制（每月10-18號才能投票）
             // const today = new Date().getDate();
@@ -839,13 +1166,47 @@
             //   });
             //   return;
             // }
-            if (!this.canVote) {
-              this.errorMessage = this.voteRestrictionMessage;
-              return;
-            }
+            // if (!this.canVote) {
+            //   this.errorMessage = this.voteRestrictionMessage;
+            //   return;
+            // }
 
             if (this.selectedCandidates.length === 0) {
               this.errorMessage = "請至少選擇一位候選人";
+              return;
+            }
+
+            // 🆕 送出前先在前端做一次重複檢查(雙保險)
+            const selectedIds = this.selectedCandidates.map(c => c.emp_id);
+            const dupInThisBatch = selectedIds.filter((id, idx) => selectedIds.indexOf(id) !== idx);
+            if (dupInThisBatch.length > 0) {
+              await Swal.fire({
+                title: "❌ 有重複的候選人",
+                text: "本次選擇中有重複的候選人,請重新選擇",
+                icon: "error",
+                confirmButtonColor: "#dc2626",
+                confirmButtonText: "重新選擇",
+                customClass: { popup: "rounded-2xl", confirmButton: "rounded-lg px-6 py-3" },
+              });
+              this.selectedCandidates = [];
+              return;
+            }
+            const dupWithHistory = selectedIds.filter(id => this.votedForIds.includes(id));
+            if (dupWithHistory.length > 0) {
+              const dupNames = this.selectedCandidates
+                .filter(c => dupWithHistory.includes(c.emp_id))
+                .map(c => `${c.name}(${c.emp_id})`)
+                .join('、');
+              await Swal.fire({
+                title: "❌ 投票已取消",
+                html: `您本月已投過:<strong>${dupNames}</strong><br><br>無法重複投票,本次投票已取消,請重新選擇其他候選人`,
+                icon: "error",
+                confirmButtonColor: "#dc2626",
+                confirmButtonText: "重新選擇",
+                customClass: { popup: "rounded-2xl", confirmButton: "rounded-lg px-6 py-3" },
+              });
+              this.selectedCandidates = [];
+              await this.loadData();
               return;
             }
 
@@ -898,9 +1259,9 @@
                 this.votesUsed = data.votes_used;
                 this.maxVotes = data.max_votes;
                 const remainingVotes = this.maxVotes - this.votesUsed;
-                
+
                 console.log('投票成功：votes_used:', this.votesUsed, 'max_votes:', this.maxVotes, 'remaining:', remainingVotes);
-                
+
                 // 顯示投票成功訊息
                 await Swal.fire({
                   title: "✅ 投票成功!",
@@ -959,9 +1320,9 @@
                   } else {
                     // 繼續投票
                     console.log('=== 用戶選擇繼續投票 ===');
-                    await this.loadData();
+                    await this.loadData();  // 🆕 這裡會自動更新 votedForIds
                     this.canVote = true;
-                    
+
                     Swal.fire({
                       title: "繼續投票",
                       text: `請選擇您要投票的候選人 (剩餘 ${remainingVotes} 票)`,
@@ -987,7 +1348,7 @@
                       popup: "rounded-2xl",
                     },
                   });
-                  
+
                   // 強制跳轉
                   setTimeout(() => {
                     const targetUrl = `admin_panel.html?emp_id=${this.currentVoter.emp_id}`;
@@ -996,8 +1357,27 @@
                   }, 300);
                 }
               } else {
-                this.errorMessage = data.error;
+                // 🆕 若後端判定為重複投票,整筆取消、清空選擇並重載資料
+                if (data.duplicates && data.duplicates.length > 0) {
+                  await Swal.fire({
+                    title: "❌ 投票已取消",
+                    html: `${data.error}<br><br>本次投票已<strong>整筆取消</strong>,請重新選擇其他候選人`,
+                    icon: "error",
+                    confirmButtonColor: "#dc2626",
+                    confirmButtonText: "重新選擇",
+                    customClass: {
+                      popup: "rounded-2xl",
+                      confirmButton: "rounded-lg px-6 py-3",
+                    },
+                  });
+                  this.selectedCandidates = [];
+                  this.errorMessage = "";
+                  await this.loadData();  // 重新載入,更新 votedForIds
+                  return;
+                }
 
+                // 其他錯誤照原本方式顯示
+                this.errorMessage = data.error;
                 Swal.fire({
                   title: "投票失敗",
                   text: data.error,
@@ -1046,7 +1426,34 @@
               console.error("載入統計失敗", error);
             }
           }
-,
+          // async loadStatistics() {
+          //   try {
+          //     const response = await fetch(
+          //       "http://127.0.0.1:5000/api/statistics"
+          //     );
+          //     const data = await response.json();
+
+          //     // 將targetShift轉換為後端使用的格式
+          //     const shiftMap = {
+          //       '2000': 'RR',
+          //       '3000': '輪班',
+          //       'RR': 'RR',
+          //       '輪班': '輪班'
+          //     };
+          //     const targetShiftFormatted = shiftMap[this.targetShift] || this.targetShift;
+              
+          //     console.log('過濾條件:', 'targetShift =', this.targetShift, '->', targetShiftFormatted);
+          //     console.log('原始統計數據:', data.vote_stats);
+
+          //     this.leaderboard = data.vote_stats
+          //       .filter((stat) => stat.shift_type === targetShiftFormatted)
+          //       .slice(0, 5);
+              
+          //     console.log('過濾後的排行榜:', this.leaderboard);
+          //   } catch (error) {
+          //     console.error("載入統計失敗", error);
+          //   }
+          // },
         },
       }).mount("#app");
     </script>

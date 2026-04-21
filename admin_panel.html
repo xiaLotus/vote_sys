@@ -180,7 +180,7 @@
                                                     <div>
                                                         <p class="font-bold text-gray-900">{{ vote.voter_name }}</p>
                                                         <p class="text-sm text-gray-500">{{ vote.voter_emp_id }}</p>
-                                                        <span :class="vote.voter_shift === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
+                                                        <span :class="vote.voter_shift === 'RR' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
                                                             class="inline-block mt-1 px-2 py-1 rounded-full text-xs font-semibold">
                                                             {{ vote.voter_shift }}
                                                         </span>
@@ -202,7 +202,7 @@
                                                     <div>
                                                         <p class="font-bold text-gray-900">{{ vote.voted_for_name }}</p>
                                                         <p class="text-sm text-gray-500">{{ vote.voted_for_emp_id }}</p>
-                                                        <span :class="vote.voted_for_shift === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
+                                                        <span :class="vote.voted_for_shift === 'RR' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
                                                             class="inline-block mt-1 px-2 py-1 rounded-full text-xs font-semibold">
                                                             {{ vote.voted_for_shift }}
                                                         </span>
@@ -233,7 +233,7 @@
                                             <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">姓名</th>
                                             <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">班別</th>
                                             <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">投票狀態</th>
-                                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">上次投票時間</th>
+                                            <!-- <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">上次投票時間</th> -->
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-200">
@@ -254,9 +254,9 @@
                                                     ⏳ 本月已達配額
                                                 </span>
                                             </td>
-                                            <td class="px-4 py-4 text-sm text-gray-500">
+                                            <!-- <td class="px-4 py-4 text-sm text-gray-500">
                                                 {{ emp.last_vote_time ? formatDate(emp.last_vote_time) : '-' }}
-                                            </td>
+                                            </td> -->
                                         </tr>
                                     </tbody>
                                 </table>
@@ -342,23 +342,23 @@
                             <h2 class="text-2xl font-bold text-gray-800 mb-6">統計分析</h2>
 
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <!-- 2000班 排行榜 -->
+                                <!-- RR 排行榜 -->
                                 <div class="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl p-6 shadow-lg">
                                     <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                                        <span class="bg-red-500 text-white px-3 py-1 rounded-lg mr-3">2000</span>
-                                        本月得票排行榜 TOP 10
+                                        <span class="bg-red-500 text-white px-3 py-1 rounded-lg mr-3">RR</span>
+                                        本月得票排行榜
                                     </h3>
                                     <div class="space-y-3">
-                                        <div v-if="ranking_2000.length === 0" class="text-center py-8 text-gray-500">
+                                        <div v-if="rrRanking.length === 0" class="text-center py-8 text-gray-500">
                                             尚無投票記錄
                                         </div>
-                                        <div v-for="(item, index) in ranking_2000" :key="item.emp_id"
+                                        <div v-for="(item, index) in rrRanking" :key="item.emp_id"
                                              class="bg-white rounded-lg p-4 shadow hover:shadow-md transition">
                                             <div class="flex items-center justify-between">
                                                 <div class="flex items-center space-x-4">
                                                     <div :class="[
                                                         'w-10 h-10 rounded-full flex items-center justify-center font-bold text-white',
-                                                        index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-500' : 'bg-red-500'
+                                                        index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-500' : 'bg-indigo-500'
                                                     ]">
                                                         {{ index + 1 }}
                                                     </div>
@@ -376,17 +376,17 @@
                                     </div>
                                 </div>
 
-                                <!-- 3000班 排行榜 -->
+                                <!-- 輪班 TOP 10 -->
                                 <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 shadow-lg">
                                     <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
-                                        <span class="bg-blue-500 text-white px-3 py-1 rounded-lg mr-3">3000</span>
+                                        <span class="bg-blue-500 text-white px-3 py-1 rounded-lg mr-3">輪班</span>
                                         本月得票排行榜 TOP 10
                                     </h3>
                                     <div class="space-y-3">
-                                        <div v-if="ranking_3000.length === 0" class="text-center py-8 text-gray-500">
+                                        <div v-if="shiftRanking.length === 0" class="text-center py-8 text-gray-500">
                                             尚無投票記錄
                                         </div>
-                                        <div v-for="(item, index) in ranking_3000" :key="item.emp_id"
+                                        <div v-for="(item, index) in shiftRanking" :key="item.emp_id"
                                              class="bg-white rounded-lg p-4 shadow hover:shadow-md transition">
                                             <div class="flex items-center justify-between">
                                                 <div class="flex items-center space-x-4">
@@ -428,7 +428,7 @@
                                             <p class="text-purple-800 mb-4">設定每位員工每月可投票的次數(1-20票)</p>
                                             
                                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                <!-- 2000班 配額 -->
+                                                <!-- RR 配額 -->
                                                 <div class="bg-white rounded-lg p-4 shadow">
                                                     <label class="block text-sm font-bold text-gray-700 mb-2">
                                                         <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs mr-2">2000</span>
@@ -437,7 +437,7 @@
                                                     <div class="flex items-center space-x-3">
                                                         <input 
                                                             type="number" 
-                                                            v-model.number="quotas.quota_2000"
+                                                            v-model.number="quotas.rr"
                                                             min="1"
                                                             max="20"
                                                             class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none font-bold text-lg text-center">
@@ -445,7 +445,7 @@
                                                     </div>
                                                 </div>
 
-                                                <!-- 3000班 配額 -->
+                                                <!-- 輪班配額 -->
                                                 <div class="bg-white rounded-lg p-4 shadow">
                                                     <label class="block text-sm font-bold text-gray-700 mb-2">
                                                         <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2">3000</span>
@@ -454,7 +454,7 @@
                                                     <div class="flex items-center space-x-3">
                                                         <input 
                                                             type="number" 
-                                                            v-model.number="quotas.quota_3000"
+                                                            v-model.number="quotas.shift"
                                                             min="1"
                                                             max="20"
                                                             class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none font-bold text-lg text-center">
