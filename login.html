@@ -6,244 +6,277 @@
     <title>匿名投票系統 - 登入</title>
     <script src="static/js/package/tailwinds.js"></script>
     <script src="static/js/package/vue.global.js"></script>
-    <script src="static/js/package/axios.min.js"></script>
+    <link rel="stylesheet" href="theme.css">
     <style>
-        [v-cloak] { display: none; }
-        
-        body {
-            background: linear-gradient(135deg, #f5f0ea 0%, #ede4d8 50%, #e8dcc8 100%);
-            overflow: hidden;
-            position: relative;
+        /* ---------- 登入頁專用 ---------- */
+        .login-left {
+            background:
+                radial-gradient(600px 360px at 0% 0%, rgba(62, 207, 142, .10), transparent 60%),
+                var(--bg);
         }
-        
-        /* 動態背景粒子 */
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: 
-                radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
-            animation: float 20s ease-in-out infinite;
+        .login-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px -12px rgba(0,0,0,.10);
         }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
+        .field { position: relative; }
+        .field > .lead {
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+            width: 17px; height: 17px; color: var(--text-3); pointer-events: none;
+            transition: color .15s;
         }
-        
-        @keyframes fadeInUp {
-            from { 
-                opacity: 0; 
-                transform: translateY(30px);
-            }
-            to { 
-                opacity: 1; 
-                transform: translateY(0);
-            }
+        .field > .input { padding-left: 38px; height: 44px; }
+        .field:focus-within > .lead { color: var(--text); }
+        .field > .trail {
+            position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+            height: 32px; width: 32px; border-radius: var(--radius);
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--text-3);
         }
-        
-        .fade-in-up {
-            animation: fadeInUp 0.6s ease-out;
+        .field > .trail:hover { background: var(--surface-2); color: var(--text); }
+        .btn-login { height: 44px; font-size: 15px; }
+        .btn-login .arrow { transition: transform .2s; }
+        .btn-login:hover:not(:disabled) .arrow { transform: translateX(3px); }
+
+        /* 右側深色展示區 */
+        .hero {
+            position: relative; overflow: hidden;
+            background: #121212; color: #fafafa;
         }
-        
-        /* 玻璃質感效果 */
-        .glass {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+        .hero::before {
+            content: ''; position: absolute; inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+            background-size: 32px 32px;
+            mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 30%, transparent 75%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 30%, transparent 75%);
         }
-        
-        /* 輸入框聚焦效果 */
-        .input-field:focus {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(251, 146, 60, 0.2);
+        .hero::after {
+            content: ''; position: absolute; width: 520px; height: 520px; right: -140px; top: -160px;
+            background: radial-gradient(circle, rgba(62, 207, 142, .22), transparent 65%);
+            filter: blur(10px);
         }
-        
-        /* 按鈕懸停效果 */
-        .btn-hover:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(251, 146, 60, 0.4);
+        .hero-muted { color: #a1a1a1; }
+        .hero-eyebrow {
+            display: inline-flex; align-items: center; gap: 8px;
+            height: 26px; padding: 0 10px; border-radius: 999px;
+            border: 1px solid #2e2e2e; background: rgba(255,255,255,.03);
+            font-size: 12px; color: #d4d4d4;
         }
-        
-        @keyframes heartbeat {
-            0%, 100% { transform: scale(1); }
-            25% { transform: scale(1.1); }
-            50% { transform: scale(1); }
+        .hero-eyebrow .dot { color: var(--brand); box-shadow: 0 0 0 3px rgba(62,207,142,.18); }
+        .mock {
+            background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 12px;
+            box-shadow: 0 24px 48px -16px rgba(0,0,0,.6);
         }
-        
-        .heartbeat {
-            animation: heartbeat 1.5s ease-in-out infinite;
+        .mock-head { padding: 10px 14px; border-bottom: 1px solid #2a2a2a; display: flex; align-items: center; justify-content: space-between; }
+        .mock-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #8f8f8f; font-weight: 600; }
+        .mock-row { display: flex; align-items: center; gap: 10px; padding: 9px 14px; }
+        .mock-row + .mock-row { border-top: 1px solid #242424; }
+        .mock-bar { height: 6px; border-radius: 999px; background: #2a2a2a; overflow: hidden; flex: 1; }
+        .mock-bar > i { display: block; height: 100%; border-radius: 999px; background: #e5e5e5; }
+        .mock-bar > i.g { background: var(--brand); }
+        .mock-avatar { width: 26px; height: 26px; border-radius: 999px; background: #2a2a2a; color: #d4d4d4; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .mock-pill { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid #3a3a3a; color: #d4d4d4; }
+        .mock-pill.dark { background: #fafafa; color: #121212; border-color: #fafafa; }
+        .toast {
+            background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 10px;
+            padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 16px 32px -12px rgba(0,0,0,.7);
         }
+        .toast .ok { width: 22px; height: 22px; border-radius: 999px; background: rgba(62,207,142,.15); color: var(--brand); display: inline-flex; align-items: center; justify-content: center; }
+        .float-a { animation: floatY 6s ease-in-out infinite; }
+        .float-b { animation: floatY 6s ease-in-out infinite; animation-delay: -3s; }
+        @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        .feature { display: flex; gap: 10px; }
+        .feature svg { width: 18px; height: 18px; color: var(--brand); flex-shrink: 0; margin-top: 2px; }
     </style>
 </head>
-<body class="h-screen flex flex-col items-center justify-center p-6">
-    <div id="app" v-cloak class="w-full max-w-5xl relative z-10 h-full max-h-[85vh] flex flex-col">
-        <!-- 登入卡片 -->
-        <div class="glass rounded-3xl shadow-2xl overflow-hidden fade-in-up flex-1 flex flex-col">
-            <div class="grid grid-cols-2 h-full">
-                <!-- 左側：系統特色 -->
-                <div class="bg-gradient-to-br from-amber-600 via-orange-600 to-red-500 p-10 text-white relative overflow-hidden flex flex-col">
-                    <!-- 裝飾圓圈 -->
-                    <div class="absolute top-0 right-0 w-48 h-48 bg-white opacity-10 rounded-full -mr-24 -mt-24"></div>
-                    <div class="absolute bottom-0 left-0 w-40 h-40 bg-white opacity-10 rounded-full -ml-20 -mb-20"></div>
-                    
-                    <div class="relative z-10 flex flex-col h-full justify-center">
-                        <!-- Logo 和標題 -->
-                        <div class="mb-10">
-                            <div class="flex items-center space-x-3 mb-3">
-                                <div class="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h1 class="text-3xl font-bold">匿名投票系統</h1>
-                                    <p class="text-white/90 text-sm">Anonymous Voting System</p>
-                                </div>
-                            </div>
-                        </div>
+<body class="h-screen overflow-hidden">
+    <div id="app" v-cloak class="h-full grid grid-cols-1 lg:grid-cols-2">
+        <!-- ================= 左側：登入 ================= -->
+        <div class="login-left flex flex-col h-full px-8 py-6">
+            <div class="flex items-center gap-2">
+                <span class="brand-mark">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </span>
+                <span class="font-semibold">匿名投票系統</span>
+            </div>
 
-                        <!-- 系統特色卡片 -->
-                        <div class="space-y-5">
-                            <div class="flex items-center space-x-4 bg-white/15 backdrop-blur-sm rounded-xl p-5">
-                                <div class="w-14 h-14 bg-green-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                                    </svg>
-                                </div>
-                                <div class="flex-1">
-                                    <h3 class="font-bold text-xl mb-1">完全匿名</h3>
-                                    <p class="text-white/90 text-sm">投票結果完全保密，無法追蹤投票者</p>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center space-x-4 bg-white/15 backdrop-blur-sm rounded-xl p-5">
-                                <div class="w-14 h-14 bg-yellow-400 rounded-xl flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                    </svg>
-                                </div>
-                                <div class="flex-1">
-                                    <h3 class="font-bold text-xl mb-1">公平公正</h3>
-                                    <p class="text-white/90 text-sm">每人每月僅能投票一次</p>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center space-x-4 bg-white/15 backdrop-blur-sm rounded-xl p-5">
-                                <div class="w-14 h-14 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                                    </svg>
-                                </div>
-                                <div class="flex-1">
-                                    <h3 class="font-bold text-xl mb-1">即時統計</h3>
-                                    <p class="text-white/90 text-sm">投票後立即查看統計結果</p>
-                                </div>
-                            </div>
-                        </div>
+            <div class="flex-1 flex items-center justify-center">
+                <div class="w-full fade-up" style="max-width: 400px;">
+                    <div class="mb-7">
+                        <h1 class="text-3xl font-semibold" style="letter-spacing: -0.03em;">登入投票系統</h1>
+                        <p class="muted mt-2">使用公司 AD 帳號登入，開始本月投票</p>
                     </div>
-                </div>
-                
-                <!-- 右側：登入表單 -->
-                <div class="p-10 flex flex-col justify-center">
-                    <div class="max-w-md mx-auto w-full">
-                        <h2 class="text-3xl font-bold text-gray-800 mb-8 text-center">歡迎登入</h2>
-                        
-                        <!-- 錯誤訊息 -->
-                        <div v-if="errorMessage" class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-                            <div class="flex items-center">
-                                <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+
+                    <div class="login-card p-6">
+                        <div v-if="errorMessage" class="alert alert-danger mb-5">
+                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span>{{ errorMessage }}</span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="field-label">工號</label>
+                            <div class="field">
+                                <svg class="lead" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                                 </svg>
-                                <p class="text-red-700 text-sm font-medium">{{ errorMessage }}</p>
+                                <input
+                                    type="text"
+                                    v-model="empId"
+                                    @keyup.enter="login"
+                                    placeholder="例如 K12345"
+                                    class="input mono"
+                                    style="font-size: 14px; text-transform: uppercase;"
+                                    autocomplete="username"
+                                    autofocus
+                                />
                             </div>
                         </div>
-                        
-                        <!-- 工號輸入 -->
+
                         <div class="mb-6">
-                            <label class="block text-gray-700 text-sm font-semibold mb-3">
-                                <div class="flex items-center">
-                                    <svg class="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            <label class="field-label">密碼</label>
+                            <div class="field">
+                                <svg class="lead" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                                <input
+                                    :type="showPassword ? 'text' : 'password'"
+                                    v-model="password"
+                                    @keyup.enter="login"
+                                    placeholder="輸入密碼"
+                                    class="input"
+                                    style="padding-right: 44px;"
+                                    autocomplete="current-password"
+                                />
+                                <button type="button" class="trail" @click="showPassword = !showPassword" :title="showPassword ? '隱藏密碼' : '顯示密碼'">
+                                    <svg v-if="!showPassword" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z"/>
+                                        <circle cx="12" cy="12" r="3"/>
                                     </svg>
-                                    工號
-                                </div>
-                            </label>
-                            <input 
-                                type="text" 
-                                v-model="empId"
-                                @keyup.enter="login"
-                                placeholder="請輸入工號"
-                                class="input-field w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 transition-all duration-300 text-gray-800 font-medium"
-                            />
-                        </div>
-                        
-                        <!-- 密碼輸入 -->
-                        <div class="mb-8">
-                            <label class="block text-gray-700 text-sm font-semibold mb-3">
-                                <div class="flex items-center">
-                                    <svg class="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                    <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A9.8 9.8 0 0112 5c6 0 9.5 7 9.5 7a17 17 0 01-3.1 4.1M6.6 6.6A17 17 0 002.5 12S6 19 12 19a9.6 9.6 0 005.4-1.6"/>
                                     </svg>
-                                    密碼
-                                </div>
-                            </label>
-                            <input 
-                                type="password" 
-                                v-model="password"
-                                @keyup.enter="login"
-                                placeholder="請輸入密碼"
-                                class="input-field w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 transition-all duration-300 text-gray-800 font-medium"
-                            />
+                                </button>
+                            </div>
                         </div>
-                        
-                        <!-- 登入按鈕 -->
-                        <button 
-                            @click="login"
-                            class="btn-hover w-full bg-gradient-to-r from-amber-600 via-orange-600 to-red-500 text-white py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 flex items-center justify-center space-x-2"
-                        >
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+
+                        <button @click="login" :disabled="isSubmitting" class="btn btn-primary btn-login w-full">
+                            <svg v-if="isSubmitting" class="spin" fill="none" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity=".25"></circle>
+                                <path fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                             </svg>
-                            <span>立即登入</span>
+                            <span>{{ isSubmitting ? '登入中...' : '登入' }}</span>
+                            <svg v-if="!isSubmitting" class="arrow" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6l6 6-6 6"/>
+                            </svg>
                         </button>
                     </div>
+
+                    <p class="subtle text-xs text-center mt-5">
+                        帳號密碼與電腦登入相同 · 登入狀態 8 小時後自動失效
+                    </p>
                 </div>
             </div>
+
+            <div class="flex items-center justify-between subtle text-xs">
+                <span>MIT License · Made by RuiYing</span>
+                <span>2024~2026</span>
+            </div>
         </div>
-        
-        <!-- 版權資訊 -->
-        <div class="text-center mt-6 flex-shrink-0">
-            <div class="glass inline-flex items-center space-x-3 px-6 py-3 rounded-full">
-                <!-- MIT License -->
-                <div class="flex items-center space-x-2">
-                    <svg class="w-5 h-5 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                    </svg>
-                    <span class="text-sm font-bold text-orange-600">MIT</span>
-                </div>
-                
-                <span class="text-gray-400">|</span>
-                
-                <!-- Made by -->
-                <p class="text-sm font-medium text-gray-700 flex items-center">
-                    Made by 
-                    <span class="mx-1.5 font-bold text-orange-600">RuiYing</span>
-                    <svg class="w-4 h-4 text-red-500 heartbeat" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/>
-                    </svg>
-                    <span class="ml-1.5">2024~2025</span>
+
+        <!-- ================= 右側：展示區 ================= -->
+        <div class="hero hidden lg:flex flex-col justify-center px-14 py-12">
+            <div class="relative z-10 w-full" style="max-width: 500px;">
+                <span class="hero-eyebrow"><span class="dot"></span>每月 10 號開放投票</span>
+                <h2 class="mt-5 font-semibold" style="font-size: 38px; line-height: 1.2; letter-spacing: -0.035em;">
+                    為一起努力的夥伴<br><span style="color: var(--brand);">投下你的一票</span>
+                </h2>
+                <p class="hero-muted mt-4" style="max-width: 420px; line-height: 1.7;">
+                    依組別配額投票，結果即時統計。一般同仁只看得到得票排行，看不到誰投給誰。
                 </p>
+
+                <!-- 介面示意 -->
+                <div class="relative mt-10" style="height: 260px;">
+                    <div class="mock float-a absolute" style="left: 0; top: 0; width: 330px;">
+                        <div class="mock-head">
+                            <span class="mock-label">票數排行 Top 3</span>
+                            <span class="mock-pill">本月</span>
+                        </div>
+                        <div class="mock-row">
+                            <span class="mock-avatar" style="background: var(--brand); color: var(--brand-ink);">1</span>
+                            <span class="text-sm" style="width: 56px;">同仁 A</span>
+                            <div class="mock-bar"><i class="g" style="width: 92%;"></i></div>
+                            <span class="mono" style="color: #d4d4d4;">12</span>
+                        </div>
+                        <div class="mock-row">
+                            <span class="mock-avatar">2</span>
+                            <span class="text-sm" style="width: 56px;">同仁 B</span>
+                            <div class="mock-bar"><i style="width: 70%;"></i></div>
+                            <span class="mono" style="color: #d4d4d4;">9</span>
+                        </div>
+                        <div class="mock-row">
+                            <span class="mock-avatar">3</span>
+                            <span class="text-sm" style="width: 56px;">同仁 C</span>
+                            <div class="mock-bar"><i style="width: 54%;"></i></div>
+                            <span class="mono" style="color: #d4d4d4;">7</span>
+                        </div>
+                    </div>
+
+                    <div class="mock float-b absolute" style="left: 240px; top: 112px; width: 250px; z-index: 2;">
+                        <div class="mock-head">
+                            <span class="mock-label">本月投票</span>
+                            <span class="mock-pill dark">3000組</span>
+                        </div>
+                        <div class="px-4 py-3 space-y-3">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5"><span class="hero-muted">投給 2000組</span><span style="color: var(--brand);">✓ 已完成</span></div>
+                                <div class="mock-bar"><i class="g" style="width: 100%;"></i></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5"><span class="hero-muted">投給 3000組</span><span class="hero-muted">剩 1 票</span></div>
+                                <div class="mock-bar"><i style="width: 50%;"></i></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="toast float-a absolute" style="left: 0; top: 206px; z-index: 3;">
+                        <span class="ok">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        </span>
+                        <span class="text-sm">投票成功 · 已使用 <b>3 / 4</b> 票</span>
+                    </div>
+                </div>
+
+                <!-- 特色 -->
+                <div class="grid grid-cols-3 gap-5 mt-12 pt-8" style="border-top: 1px solid #262626;">
+                    <div class="feature">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        <div><p class="text-sm font-semibold">投票保密</p><p class="hero-muted text-xs mt-1">僅公開得票統計</p></div>
+                    </div>
+                    <div class="feature">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M5 10v8m4-8v8m6-8v8m4-8v8M3 21h18"/></svg>
+                        <div><p class="text-sm font-semibold">公平公正</p><p class="hero-muted text-xs mt-1">依照票數規則投票</p></div>
+                    </div>
+                    <div class="feature">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19V9m6 10V5m6 14v-7m4 7H2"/></svg>
+                        <div><p class="text-sm font-semibold">即時統計</p><p class="hero-muted text-xs mt-1">投完立即看結果</p></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+    // 後端位址：預設與網頁同一台主機的 5000 port
+    const API_BASE = window.API_BASE || `http://${location.hostname || '127.0.0.1'}:5000`;
+
     const { createApp } = Vue;
 
     createApp({
@@ -251,13 +284,24 @@
             return {
                 empId: '',
                 password: '',
-                errorMessage: ''
+                errorMessage: '',
+                isSubmitting: false,
+                showPassword: false
             }
+        },
+        mounted() {
+            // 進入登入頁即清除舊的登入狀態
+            try {
+                sessionStorage.removeItem('vote_token');
+                sessionStorage.removeItem('vote_user');
+            } catch (e) { /* 忽略 */ }
         },
         methods: {
             async login() {
+                if (this.isSubmitting) return;
+
                 const empId = this.empId.trim().toUpperCase();
-                const password = this.password.trim();
+                const password = this.password;
                 this.errorMessage = '';
 
                 if (!empId) {
@@ -269,56 +313,48 @@
                     return;
                 }
 
+                this.isSubmitting = true;
                 try {
-                    const response = await fetch('http://127.0.0.1:5000/api/login', {
+                    const response = await fetch(`${API_BASE}/api/login`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            username: empId,
-                            password: password
-                        })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: empId, password: password })
                     });
 
-                    if (!response.ok) {
-                        let errorText = '';
-                        try {
-                            const errorData = await response.json();
-                            errorText = errorData.message || errorData.error || '未知錯誤';
-                        } catch {
-                            errorText = await response.text() || `HTTP ${response.status}`;
-                        }
-                        throw new Error(`伺服器錯誤 (${response.status}): ${errorText}`);
-                    }
+                    const data = await response.json().catch(() => ({}));
 
-                    const data = await response.json();
+                    if (!response.ok && !('success' in data)) {
+                        throw new Error(`伺服器錯誤 (${response.status}): ${data.message || data.error || '未知錯誤'}`);
+                    }
 
                     if (data.success) {
                         try {
-                            localStorage.setItem('username', empId);
+                            sessionStorage.setItem('vote_token', data.token);
+                            sessionStorage.setItem('vote_user', JSON.stringify({
+                                emp_id: data.emp_id,
+                                name: data.name,
+                                is_admin: data.is_admin,
+                                in_roster: data.in_roster
+                            }));
                         } catch (e) {
-                            console.warn('localStorage 失敗，改用 sessionStorage');
-                            sessionStorage.setItem('username', empId);
+                            this.errorMessage = '瀏覽器無法儲存登入狀態，請關閉無痕模式或允許網站資料後再試';
+                            return;
                         }
-                        window.location.href = `voting_system_vue.html?emp_id=${empId}`;
+                        // 不在投票名單的管理員直接進後台
+                        window.location.href = data.in_roster ? 'voting_system_vue.html' : 'admin_panel.html';
                     } else {
                         this.errorMessage = data.message || '登入失敗';
                         this.password = '';
                     }
-
                 } catch (error) {
                     console.error('🔥 登入失敗:', error);
-
-                    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                        this.errorMessage = '無法連線到伺服器：請確認 Flask 已啟動 (port 5000)';
-                    } else if (error.message.includes('Failed to fetch')) {
-                        this.errorMessage = '請求被瀏覽器封鎖：請用 --disable-web-security Chrome';
-                    } else if (error.message.includes('NetworkError')) {
-                        this.errorMessage = '網路錯誤：檢查防火牆或 Flask 是否運行中';
+                    if (error instanceof TypeError) {
+                        this.errorMessage = `無法連線到伺服器（${API_BASE}），請確認 Flask 已啟動`;
                     } else {
                         this.errorMessage = '系統錯誤：' + (error.message || '未知');
                     }
+                } finally {
+                    this.isSubmitting = false;
                 }
             }
         }

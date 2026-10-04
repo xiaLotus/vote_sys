@@ -7,1455 +7,744 @@
     <script src="static/js/package/tailwinds.js"></script>
     <script src="static/js/package/vue.global.js"></script>
     <script src="static/js/package/sweetalert2@11.js"></script>
+    <link rel="stylesheet" href="theme.css" />
     <style>
-      [v-cloak] {
-        display: none;
-      }
+      /* ================= 投票頁專用 ================= */
       body {
-        background: linear-gradient(
-          135deg,
-          #f5f0ea 0%,
-          #ede4d8 50%,
-          #e8dcc8 100%
-        );
-        overflow: hidden;
+        background:
+          radial-gradient(900px 420px at 85% -10%, rgba(62, 207, 142, 0.10), transparent 60%),
+          radial-gradient(700px 400px at 0% 100%, rgba(23, 23, 23, 0.05), transparent 60%),
+          #f1f1f2;
       }
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(20px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+
+      /* 深色頂部列 */
+      .topbar-dark {
+        background: #121212;
+        color: #fafafa;
+        border-bottom: 1px solid #262626;
       }
-      .fade-in {
-        animation: fadeIn 0.5s ease-out;
+      .topbar-dark .brand-mark { background: var(--brand); color: var(--brand-ink); }
+      .topbar-dark .crumb { color: #8f8f8f; }
+      .btn-on-dark {
+        background: transparent; border-color: #333; color: #e5e5e5;
       }
-      .custom-scrollbar {
-        scrollbar-width: thin;
-        scrollbar-color: #d97706 #f3f4f6;
+      .btn-on-dark:hover:not(:disabled) { background: #1f1f1f !important; color: #fff; }
+      .user-chip {
+        display: inline-flex; align-items: center; gap: 10px;
+        height: 34px; padding: 0 12px 0 4px;
+        border: 1px solid #2e2e2e; border-radius: 999px; background: #1a1a1a;
       }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
+      .avatar {
+        width: 26px; height: 26px; border-radius: 999px; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 700;
       }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: #f3f4f6;
-        border-radius: 3px;
+      .avatar-brand { background: var(--brand); color: var(--brand-ink); }
+
+      /* 深色側欄 */
+      .panel-dark {
+        position: relative; overflow: hidden;
+        background: #161616; color: #fafafa;
+        border: 1px solid #262626; border-radius: 14px;
       }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #d97706;
-        border-radius: 3px;
+      .panel-dark::before {
+        content: ''; position: absolute; inset: 0; pointer-events: none;
+        background-image:
+          linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(to bottom, #000, transparent 70%);
+        -webkit-mask-image: linear-gradient(to bottom, #000, transparent 70%);
       }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #b45309;
+      .panel-dark::after {
+        content: ''; position: absolute; width: 360px; height: 360px; right: -160px; top: -180px; pointer-events: none;
+        background: radial-gradient(circle, rgba(62, 207, 142, .22), transparent 65%);
       }
+      .panel-dark > * { position: relative; z-index: 1; }
+      .pd-muted { color: #9a9a9a; }
+      .pd-label { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #8a8a8a; }
+      .pd-divider { border-top: 1px solid #262626; }
+      .panel-dark .badge-2000 { background: #fafafa; border-color: #fafafa; color: #121212; }
+      .panel-dark .badge-3000 { background: transparent; border-color: #3a3a3a; color: #e5e5e5; }
+      .pd-progress { height: 8px; border-radius: 999px; background: #262626; overflow: hidden; }
+      .pd-progress > div { height: 100%; border-radius: 999px; background: #e5e5e5; transition: width .4s ease; }
+      .pd-progress > div.done { background: var(--brand); box-shadow: 0 0 12px rgba(62,207,142,.45); }
+      .big-num { font-size: 30px; font-weight: 650; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+      .rank-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; transition: background .15s; }
+      .rank-row:hover { background: #1f1f1f; }
+      .rank-bar { height: 4px; border-radius: 999px; background: #262626; overflow: hidden; margin-top: 6px; }
+      .rank-bar > i { display: block; height: 100%; border-radius: 999px; background: #6b6b6b; }
+      .rank-row:first-child .rank-bar > i { background: var(--brand); }
+      .rank-medal { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: #262626; color: #d4d4d4; flex-shrink: 0; }
+      .rank-medal.m1 { background: var(--brand); color: var(--brand-ink); }
+      .rank-medal.m2 { background: #e5e5e5; color: #121212; }
+      .rank-medal.m3 { background: #737373; color: #fff; }
+
+      /* 候選人區 */
+      .stage {
+        background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+        box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 16px 40px -24px rgba(0,0,0,.18);
+      }
+      .stage-head {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(to bottom, #fcfcfc, #f7f7f7);
+        border-radius: 14px 14px 0 0;
+      }
+      .cand {
+        position: relative;
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+        transition: border-color .15s, box-shadow .15s, transform .15s, background .15s;
+      }
+      .cand.clickable { cursor: pointer; }
+      .cand.clickable:hover { border-color: #c9c9c9; box-shadow: 0 6px 16px -10px rgba(0,0,0,.25); transform: translateY(-1px); }
+      .cand.selected { border-color: var(--brand); background: var(--brand-soft); box-shadow: 0 0 0 1px var(--brand) inset, 0 8px 20px -12px rgba(62,207,142,.6); }
+      .cand.disabled { opacity: .5; cursor: not-allowed; background: #fafafa; }
+      .cand .avatar { width: 38px; height: 38px; font-size: 15px; }
+      .av-2000 { background: #171717; color: #fafafa; }
+      .av-3000 { background: #ececec; color: #262626; border: 1px solid #dcdcdc; }
+      .cand.selected .avatar { background: var(--brand); color: var(--brand-ink); border-color: var(--brand-hover); }
+      .cand .tick {
+        position: absolute; top: -7px; right: -7px;
+        width: 22px; height: 22px; border-radius: 999px;
+        background: var(--brand); color: var(--brand-ink);
+        display: inline-flex; align-items: center; justify-content: center;
+        box-shadow: 0 0 0 3px #fff;
+      }
+
+      .seg-lg .seg-item { height: 32px; padding: 0 14px; font-size: 13px; }
+
+      /* 深色底部動作列 */
+      .dock {
+        background: #121212; color: #fafafa;
+        border-radius: 0 0 14px 14px;
+        border-top: 1px solid #262626;
+      }
+      .dock-chip {
+        display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+        height: 30px; padding: 0 6px 0 4px;
+        border-radius: 999px; border: 1px solid #2e2e2e; background: #1c1c1c;
+        font-size: 12px; color: #f5f5f5;
+      }
+      .dock-chip .avatar { width: 22px; height: 22px; font-size: 11px; }
+      .dock-chip button { width: 20px; height: 20px; border-radius: 999px; color: #8f8f8f; display: inline-flex; align-items: center; justify-content: center; }
+      .dock-chip button:hover { background: #2a2a2a; color: #fff; }
+      .btn-submit { height: 44px; min-width: 180px; font-size: 15px; box-shadow: 0 0 0 1px var(--brand-hover), 0 8px 24px -8px rgba(62,207,142,.6); }
+      .btn-submit:disabled { box-shadow: none; background: #2a2a2a; border-color: #333; color: #777; opacity: 1; }
+      .dock .alert-danger { background: rgba(229,72,77,.12); border-color: rgba(229,72,77,.35); color: #ff9a9d; }
     </style>
   </head>
-  <body class="h-screen flex items-center justify-center p-4">
-    <div id="app" v-cloak class="w-full h-full">
-      <!-- 載入中狀態 -->
-      <div v-if="isLoading" class="flex items-center justify-center h-full">
-        <div class="bg-white rounded-2xl shadow-2xl p-8 text-center">
-          <svg
-            class="animate-spin h-12 w-12 text-amber-600 mx-auto mb-4"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            ></circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
+  <body class="h-screen overflow-hidden">
+    <div id="app" v-cloak class="h-full flex flex-col">
+      <!-- 載入中 -->
+      <div v-if="isLoading" class="flex-1 flex items-center justify-center">
+        <div class="flex items-center gap-3 muted">
+          <svg class="spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity=".25"></circle>
+            <path fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
           </svg>
-          <p class="text-gray-600 font-semibold">載入中...</p>
+          載入中...
         </div>
       </div>
 
-      <!-- 主界面 -->
-      <div
-        v-if="!isLoading"
-        class="bg-white rounded-3xl shadow-2xl overflow-hidden w-full h-full fade-in"
-      >
-        <div class="grid grid-cols-2 h-full">
-          <!-- 左側:歡迎回來 + 目前票選 -->
-          <div
-            class="bg-gradient-to-br from-orange-700 via-red-600 to-red-700 p-6 text-white relative overflow-hidden flex flex-col"
-          >
-            <!-- 裝飾圓圈 -->
-            <div
-              class="absolute top-0 right-0 w-48 h-48 bg-white opacity-10 rounded-full -mr-24 -mt-24"
-            ></div>
-            <div
-              class="absolute bottom-0 left-0 w-40 h-40 bg-white opacity-10 rounded-full -ml-20 -mb-20"
-            ></div>
-
-            <div class="relative z-10 flex flex-col h-full">
-              <!-- 用戶資訊 -->
-              <div class="mb-4 flex-shrink-0">
-                <div class="flex items-center space-x-4 mb-4">
-                  <div
-                    class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center"
-                  >
-                    <svg
-                      class="w-8 h-8 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="text-white/80 text-sm">歡迎回來</p>
-                    <p class="text-2xl font-bold text-white">
-                      {{ currentVoter.name }}
-                    </p>
-                    <div class="flex items-center space-x-2 mt-1">
-                      <span class="text-sm text-white/80"
-                        >工號:{{ currentVoter.emp_id }}</span
-                      >
-                      <span class="text-white/60">•</span>
-                      <span
-                        :class="currentVoter.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
-                        class="px-3 py-1 rounded-full text-xs font-bold"
-                      >
-                        {{ currentVoter.shift_type }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 投票限制警告 -->
-              <div
-                v-if="!canVote"
-                class="bg-red-500/20 border-l-4 border-red-300 p-3 rounded-xl mb-4 backdrop-blur-sm flex-shrink-0"
-              >
-                <div class="flex items-start">
-                  <svg
-                    class="w-6 h-6 text-red-200 mr-3 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                  <div class="flex-1">
-                    <h3 class="text-base font-bold text-white mb-1">
-                      ⏳ 投票限制中
-                    </h3>
-                    <p class="text-white/90 font-semibold text-sm">
-                      {{ voteRestrictionMessage }}
-                    </p>
-                    <p class="text-white/80 text-xs mt-1">
-                      本月已用 {{ votesUsed }}/{{ maxVotes }} 票 • 您仍可以瀏覽候選人列表和查看統計資料
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 排行榜 -->
-              <div class="flex-1 flex flex-col min-h-0">
-                <div class="flex items-center justify-center mb-3 flex-shrink-0">
-                  <svg
-                    class="w-6 h-6 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                    />
-                  </svg>
-                  <h3 class="text-xl font-bold">🏆 目前票數排行 TOP 5</h3>
-                </div>
-
-                <div class="flex-1 overflow-y-auto custom-scrollbar min-h-0">
-                  <div
-                    v-if="leaderboard.length === 0"
-                    class="text-center py-8 text-white/80"
-                  >
-                    目前還沒有投票記錄
-                  </div>
-                  <div v-else class="space-y-3">
-                    <div
-                      v-for="(item, index) in leaderboard"
-                      :key="item.emp_id"
-                      :class="[
-                        'rounded-xl p-3 flex items-center justify-between transition-all',
-                        index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900' :
-                        index === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-900' :
-                        index === 2 ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white' :
-                        'bg-white/20 backdrop-blur text-white'
-                      ]"
-                    >
-                      <div class="flex items-center space-x-3">
-                        <div
-                          class="w-10 h-10 bg-white/30 rounded-full flex items-center justify-center font-bold text-lg"
-                        >
-                          {{ index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1 }}
-                        </div>
-                        <div>
-                          <p class="font-bold">{{ item.name }}</p>
-                          <p class="text-sm opacity-80">{{ item.emp_id }}</p>
-                          <!-- ✅ 新增：班別標籤 -->
-                          <span 
-                            :class="item.shift_type === 'RR' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
-                            class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold">
-                            {{ item.shift_type === 'RR' ? '2000' : '3000' }}
-                          </span>
-                        </div>
-                      </div>
-                      <div class="bg-white/30 px-3 py-1 rounded-full font-bold">
-                        {{ item.vote_count }} 票
-                      </div>
-                    </div>
-                  </div>
-                  <!-- <div v-else class="space-y-3">
-                    <div
-                      v-for="(item, index) in leaderboard"
-                      :key="item.emp_id"
-                      :class="[
-                        'rounded-xl p-3 flex items-center justify-between transition-all',
-                        index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900' :
-                        index === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-900' :
-                        index === 2 ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white' :
-                        'bg-white/20 backdrop-blur text-white'
-                      ]"
-                    >
-                      <div class="flex items-center space-x-3">
-                        <div
-                          class="w-10 h-10 bg-white/30 rounded-full flex items-center justify-center font-bold text-lg"
-                        >
-                          {{ index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1 }}
-                        </div>
-                        <div>
-                          <p class="font-bold">{{ item.name }}</p>
-                          <p class="text-sm opacity-80">{{ item.emp_id }}</p>
-                        </div>
-                      </div>
-                      <div class="bg-white/30 px-3 py-1 rounded-full font-bold">
-                        {{ item.vote_count }} 票
-                      </div>
-                    </div>
-                  </div> -->
-                </div>
-              </div>
+      <template v-if="!isLoading">
+        <!-- ================= 頂部列 ================= -->
+        <header class="topbar-dark flex-shrink-0">
+          <div class="h-14 px-5 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="brand-mark">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="font-semibold">匿名投票系統</span>
+              <span class="crumb">/</span>
+              <span class="crumb">投票</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="user-chip mr-1">
+                <span class="avatar avatar-brand">{{ status.name ? status.name.charAt(0) : '' }}</span>
+                <span class="text-sm font-medium">{{ status.name }}</span>
+                <span class="mono" style="color: #8f8f8f">{{ status.emp_id }}</span>
+              </span>
+              <button @click="goToAdmin" class="btn btn-on-dark">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 19V9m6 10V5m6 14v-7m4 7H2" />
+                </svg>
+                查看統計
+              </button>
+              <button @click="logout" class="btn btn-on-dark" style="border-color: transparent" title="登出">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                登出
+              </button>
             </div>
           </div>
+        </header>
 
-          <!-- 右側:投票域域 -->
-          <div
-            class="p-5 flex flex-col h-full relative"
-            style="background: linear-gradient(to bottom, #fffbf5, #fff7ed)"
-          >
-            <!-- 離開按鈕 -->
-            <button
-              @click="logout"
-              class="absolute top-3 right-3 text-gray-500 hover:text-gray-700 font-semibold z-10 transition-colors"
-            >
-              <svg
-                class="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-            </button>
-
-            <!-- 投票資訊 - 固定 -->
-            <div
-              class="bg-amber-50 border-l-4 border-amber-500 p-2.5 rounded-lg mb-2.5 flex-shrink-0"
-            >
-              <div class="flex items-center flex-wrap gap-x-3 gap-y-1.5 text-xs mb-2">
-                <div class="flex items-center space-x-1.5">
-                  <span class="font-bold text-gray-700">您的身份:</span>
-                  <span
-                    :class="currentVoter.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
-                    class="px-2.5 py-0.5 rounded-full font-bold"
-                    >{{ currentVoter.shift_type }}</span
-                  >
-                </div>
-                <span class="text-gray-400">•</span>
-                <div class="flex items-center space-x-1.5">
-                  <span class="font-bold text-gray-700">可投票對象:</span>
-                  <span class="text-amber-600 font-bold"
-                    >{{ displayTargetShift }}</span
-                  >
-                </div>
-                <span class="text-gray-400">•</span>
-                <div class="flex items-center space-x-1.5">
-                  <span class="font-bold text-gray-700">候選人數量:</span>
-                  <span class="text-amber-600 font-bold"
-                    >{{ candidates.length }} 位</span
-                  >
-                </div>
+        <!-- ================= 主內容 ================= -->
+        <main class="flex-1 min-h-0 p-4 grid gap-4 fade-up" style="grid-template-columns: 320px minmax(0, 1fr)">
+          <!-- 左側：深色資訊欄 -->
+          <aside class="panel-dark flex flex-col min-h-0">
+            <!-- 問候 + 本月票數 -->
+            <div class="p-5 flex-shrink-0">
+              <div class="flex items-center justify-between">
+                <span class="pd-label">本月投票</span>
+                <span v-if="status.can_vote" class="badge" style="background: rgba(62,207,142,.12); border-color: rgba(62,207,142,.35); color: var(--brand)">
+                  <span class="dot"></span>進行中
+                </span>
+                <span v-else class="badge" style="background: #222; border-color: #333; color: #bbb">已投完</span>
               </div>
-              
-              <!-- 投票進度條 -->
-              <div class="flex items-center space-x-2">
-                <span class="text-xs font-bold text-gray-700 whitespace-nowrap">投票進度:</span>
-                <div class="flex-1 bg-gray-200 rounded-full h-5 overflow-hidden">
-                  <div 
-                    :style="{ width: (votesUsed / maxVotes * 100) + '%' }"
-                    :class="votesUsed === maxVotes ? 'bg-green-500' : 'bg-amber-500'"
-                    class="h-full flex items-center justify-center transition-all duration-500"
-                  >
-                    <span v-if="votesUsed > 0" class="text-white text-xs font-bold px-2">
-                      {{ votesUsed }}/{{ maxVotes }}
+
+              <p class="mt-4 text-lg font-semibold" style="letter-spacing: -0.02em">嗨，{{ status.name }}</p>
+              <p class="pd-muted text-sm mt-0.5 flex items-center gap-2">
+                您是 <span :class="groupBadge(status.group)">{{ status.group }}組</span>
+              </p>
+
+              <div class="flex items-end gap-2 mt-5">
+                <span class="big-num">{{ status.votes_used }}</span>
+                <span class="pd-muted mb-1.5">/ {{ status.max_votes }} 票已使用</span>
+              </div>
+
+              <div class="mt-4 space-y-4">
+                <div v-for="g in targetGroups" :key="'bar-' + g">
+                  <div class="flex items-center justify-between mb-2 text-sm">
+                    <span class="flex items-center gap-2">投給 <span :class="groupBadge(g)">{{ g }}組</span></span>
+                    <span class="text-xs font-semibold" :style="{ color: status.remaining[g] === 0 ? 'var(--brand)' : '#bdbdbd' }">
+                      {{ status.remaining[g] === 0 ? '✓ 已完成' : `剩 ${status.remaining[g]} 票` }}
                     </span>
                   </div>
-                </div>
-                <span class="text-xs font-bold whitespace-nowrap" :class="votesUsed === maxVotes ? 'text-green-600' : 'text-amber-600'">
-                  {{ votesUsed === maxVotes ? '✓ 已完成' : `剩 ${maxVotes - votesUsed} 票` }}
-                </span>
-              </div>
-            </div>
-
-            <!-- 搜尋候選人 - 固定 -->
-            <div class="mb-2 flex-shrink-0">
-              <div class="relative">
-                <div
-                  class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-                >
-                  <svg
-                    class="w-5 h-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  v-model="candidateSearch"
-                  placeholder="搜尋候選人姓名或工號..."
-                  class="w-full pl-11 pr-3 py-2 border-2 border-gray-300 rounded-lg focus:border-amber-500 focus:ring-2 focus:ring-amber-200 focus:outline-none transition-all text-sm"
-                />
-              </div>
-            </div>
-
-            <!-- 候選人計數提示 - 固定 -->
-            <div class="text-xs text-gray-600 mb-1.5 flex-shrink-0 flex items-center justify-between">
-              <span>
-                顯示 <span class="font-bold text-amber-600">{{ paginatedCandidates.length }}</span> / 
-                <span class="font-bold">{{ filteredCandidates.length }}</span> 位候選人
-                <span v-if="selectedCandidates.length > 0" class="ml-2 text-green-600 font-bold">
-                  (已選 {{ selectedCandidates.length }}/{{ remainingVotes }} 位)
-                </span>
-              </span>
-              <span v-if="totalPages > 1" class="text-xs text-gray-500">
-                (第 {{ currentPage }}/{{ totalPages }} 頁)
-              </span>
-            </div>
-
-            <!-- 候選人列表容器 - 使用 flex-1 並設置最小高度為 0 -->
-            <div class="flex-1 overflow-hidden mb-1.5 min-h-0">
-              <div class="h-full overflow-y-auto custom-scrollbar pr-1">
-                <div class="space-y-1.5">
-                  <!-- 空狀態 -->
-                  <div
-                    v-if="paginatedCandidates.length === 0"
-                    class="text-center py-8 text-gray-400"
-                  >
-                    <svg
-                      class="w-12 h-12 mx-auto mb-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <p class="text-sm">找不到符合的候選人</p>
+                  <div class="pd-progress">
+                    <div
+                      :class="{ done: status.remaining[g] === 0 }"
+                      :style="{ width: (status.quota[g] ? status.used[g] / status.quota[g] * 100 : 0) + '%' }"
+                    ></div>
                   </div>
-                  
-                  <!-- 候選人卡片 -->
-                  <div
-                    v-for="(candidate, index) in paginatedCandidates"
-                    :key="candidate.emp_id"
-                    @click="canVote ? selectCandidate(candidate) : null"
-                    :class="{
-                      'border-amber-500 bg-amber-50 shadow-lg': selectedCandidates.some(c => c.emp_id === candidate.emp_id) && canVote,
-                      'border-gray-200 hover:border-amber-300 hover:bg-amber-50/50': !selectedCandidates.some(c => c.emp_id === candidate.emp_id) && canVote,
-                      'border-gray-200 opacity-60 cursor-not-allowed': !canVote,
-                      'cursor-pointer': canVote
-                    }"
-                    class="border-2 rounded-lg p-2 transition-all duration-200"
-                  >
-                    <div class="flex items-center justify-between">
-                      <div class="flex items-center space-x-2 flex-1 min-w-0">
-                        <div
-                          :class="selectedCandidates.some(c => c.emp_id === candidate.emp_id) && canVote ? 'bg-amber-600 text-white ring-4 ring-amber-200' : 'bg-gray-200 text-gray-700'"
-                          class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all flex-shrink-0"
-                        >
-                          {{ (currentPage - 1) * itemsPerPage + index + 1 }}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <p class="font-bold text-gray-800 truncate text-sm">
-                            {{ candidate.name }}
-                          </p>
-                          <p class="text-xs text-gray-500">
-                            {{ candidate.emp_id }}
-                          </p>
-                        </div>
-                      </div>
-                      <div class="flex items-center space-x-2 flex-shrink-0">
-                        <span
-                          :class="candidate.shift_type === '2000' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'"
-                          class="px-2 py-0.5 rounded-full text-xs font-bold"
-                        >
-                          {{ candidate.shift_type }}
-                        </span>
-                        <svg
-                          v-if="selectedCandidates.some(c => c.emp_id === candidate.emp_id) && canVote"
-                          class="w-6 h-6 text-amber-600 flex-shrink-0"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                          />
-                        </svg>
-                      </div>
+                  <p class="mono pd-muted mt-1.5">{{ status.used[g] }} / {{ status.quota[g] }}</p>
+                </div>
+              </div>
+
+              <div v-if="!status.can_vote" class="mt-4 rounded-lg px-3 py-2.5 text-sm" style="background: #1f1f1f; border: 1px solid #2e2e2e">
+                <p class="font-semibold" style="color: var(--brand)">{{ status.message }}</p>
+                <p class="pd-muted text-xs mt-0.5">仍可瀏覽候選人與查看統計</p>
+              </div>
+            </div>
+
+            <div class="pd-divider"></div>
+
+            <!-- 排行榜 -->
+            <div class="flex-1 min-h-0 flex flex-col p-3">
+              <div class="flex items-center justify-between px-2 pt-1 pb-2">
+                <span class="pd-label">票數排行 Top 5</span>
+                <span class="pd-muted text-xs">全體</span>
+              </div>
+              <div class="flex-1 overflow-y-auto scroll-thin">
+                <p v-if="leaderboard.length === 0" class="pd-muted text-center text-sm py-8">目前還沒有投票記錄</p>
+                <div v-for="(item, index) in leaderboard" :key="item.emp_id" class="rank-row">
+                  <span class="rank-medal" :class="'m' + (index + 1)">{{ index + 1 }}</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-sm font-medium truncate">{{ item.name }}</span>
+                      <span class="text-sm font-semibold tabular-nums">{{ item.vote_count }}<span class="pd-muted text-xs font-normal"> 票</span></span>
                     </div>
+                    <div class="flex items-center gap-2 mt-0.5">
+                      <span class="mono pd-muted">{{ item.emp_id }}</span>
+                      <span :class="groupBadge(item.group)" style="height: 18px; font-size: 10px">{{ item.group }}組</span>
+                    </div>
+                    <div class="rank-bar"><i :style="{ width: (item.vote_count / leaderboard[0].vote_count * 100) + '%' }"></i></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <!-- 右側：候選人 -->
+          <section class="stage min-h-0 flex flex-col">
+            <!-- 標題 + 工具列 -->
+            <div class="stage-head flex-shrink-0">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <h1 class="text-lg font-semibold" style="letter-spacing: -0.02em">選擇候選人</h1>
+                  <p class="text-xs muted mt-0.5">
+                    點選卡片加入，可投對象：
+                    <template v-for="(g, i) in targetGroups" :key="'t-' + g">
+                      <span v-if="i > 0">、</span><b style="color: var(--text)">{{ g }}組 {{ status.quota[g] }} 票</b>
+                    </template>
+                    ，同一人每月限投一次
+                  </p>
+                </div>
+                <div class="flex items-center gap-3">
+                  <!-- 組別切換：已投完的組別會自動隱藏 -->
+                  <div v-if="visibleGroups.length > 1" class="seg seg-lg">
+                    <button
+                      v-for="g in visibleGroups"
+                      :key="g"
+                      @click="switchGroup(g)"
+                      :class="{ 'seg-active': groupFilter === g }"
+                      class="seg-item"
+                    >
+                      投 {{ g }}組 <span class="subtle">· 剩 {{ status.remaining[g] }}</span>
+                    </button>
+                  </div>
+                  <div class="input-icon" style="width: 260px">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5-5m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input type="text" v-model="candidateSearch" placeholder="搜尋姓名或工號" class="input" />
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- 分頁控制 - 固定 -->
-            <div
-              v-if="totalPages > 1"
-              class="flex items-center justify-center space-x-2.5 mb-1.5 pb-1.5 border-b-2 border-gray-200 flex-shrink-0"
-            >
-              <button
-                @click="currentPage--"
-                :disabled="currentPage === 1"
-                class="px-3 py-1.5 bg-white border-2 border-amber-600 text-amber-600 rounded-lg font-bold disabled:border-gray-300 disabled:text-gray-300 disabled:cursor-not-allowed hover:bg-amber-600 hover:text-white transition-all text-xs"
-              >
-                ← 上一頁
-              </button>
-              <span class="text-gray-700 font-bold px-2.5 text-xs bg-amber-50 py-1.5 rounded-lg border border-amber-200">
-                第 {{ currentPage }}/{{ totalPages }} 頁
+            <!-- 計數列 -->
+            <div class="px-4 py-2 flex items-center justify-between text-xs muted flex-shrink-0" style="border-bottom: 1px solid var(--border)">
+              <span>
+                顯示 <b style="color: var(--text)">{{ paginatedCandidates.length }}</b> / {{ filteredCandidates.length }} 位
+                <span class="subtle">（共 {{ candidates.length }} 位候選人）</span>
               </span>
-              <button
-                @click="currentPage++"
-                :disabled="currentPage === totalPages"
-                class="px-3 py-1.5 bg-white border-2 border-amber-600 text-amber-600 rounded-lg font-bold disabled:border-gray-300 disabled:text-gray-300 disabled:cursor-not-allowed hover:bg-amber-600 hover:text-white transition-all text-xs"
-              >
-                下一頁 →
-              </button>
+              <span v-if="selectedCandidates.length > 0 || targetGroups.length > 1" class="font-medium" style="color: var(--text)">
+                {{ selectedSummary }}
+              </span>
             </div>
 
-            <!-- 選擇提示 + 投票按鈕域域 - 固定在底部 -->
-            <div class="flex-shrink-0 space-y-2.5 pt-1">
-              <!-- 選擇的候選人提示 - 精簡版，只顯示1位 -->
-              <div
-                v-if="selectedCandidates.length > 0 && canVote"
-                class="bg-gradient-to-r from-green-50 to-amber-50 rounded-lg border-2 border-amber-300 shadow-sm"
-              >
-                <!-- 標題欄 - 緊湊 -->
-                <div class="px-2 py-1 border-b border-amber-200">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-gray-700">
-                      已選 {{ selectedCandidates.length }}/{{ remainingVotes }}
-                    </span>
-                    <button 
-                      @click="selectedCandidates = []"
-                      class="text-xs text-red-500 hover:text-red-700 font-semibold hover:underline">
-                      清空
-                    </button>
+            <!-- 候選人卡片 -->
+            <div class="flex-1 min-h-0 overflow-y-auto scroll-thin p-4" style="background: #fbfbfb">
+              <div v-if="paginatedCandidates.length === 0" class="h-full flex flex-col items-center justify-center subtle py-10">
+                <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5-5m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <p class="text-sm">找不到符合的候選人</p>
+              </div>
+              <div v-else class="grid grid-cols-2 xl:grid-cols-3 gap-3">
+                <div
+                  v-for="candidate in paginatedCandidates"
+                  :key="candidate.emp_id"
+                  @click="selectCandidate(candidate)"
+                  :class="candidateClass(candidate)"
+                  class="cand"
+                >
+                  <span class="avatar" :class="candidate.group === '2000' ? 'av-2000' : 'av-3000'">{{ candidate.name.charAt(0) }}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-semibold truncate">{{ candidate.name }}</p>
+                    <p class="mono subtle mt-0.5">{{ candidate.emp_id }}</p>
                   </div>
-                </div>
-                
-                <!-- 候選人列表 - 只顯示1行，其餘滾動 -->
-                <div class="px-2 py-1 space-y-1 overflow-y-auto custom-scrollbar" style="max-height: 40px;">
-                  <div v-for="(candidate, index) in selectedCandidates" :key="candidate.emp_id"
-                       class="flex items-center justify-between bg-white px-2 py-1 rounded hover:bg-gray-50 transition-colors">
-                    <span class="text-xs font-bold text-gray-800 flex-1 truncate">
-                      {{ index + 1 }}. {{ candidate.name }} ({{ candidate.emp_id }})
-                    </span>
-                    <button 
-                      @click.stop="selectCandidate(candidate)"
-                      class="text-red-500 hover:text-red-700 text-xs px-1 hover:bg-red-50 rounded transition-colors ml-1 flex-shrink-0"
-                      title="取消選擇">
-                      ✕
-                    </button>
+                  <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                    <span :class="groupBadge(candidate.group)">{{ candidate.group }}組</span>
+                    <span v-if="isVoted(candidate)" class="badge badge-success" style="height: 18px; font-size: 10px">✓ 本月已投</span>
                   </div>
+                  <span v-if="isSelected(candidate)" class="tick">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
                 </div>
               </div>
+            </div>
 
-              <!-- 操作按鈕 -->
-              <div class="flex space-x-2.5">
+            <!-- 分頁 -->
+            <div v-if="totalPages > 1" class="px-4 py-2 flex items-center justify-between flex-shrink-0" style="border-top: 1px solid var(--border)">
+              <span class="text-xs subtle">第 {{ currentPage }} / {{ totalPages }} 頁</span>
+              <div class="flex items-center gap-2">
+                <button @click="currentPage--" :disabled="currentPage === 1" class="btn">← 上一頁</button>
+                <button @click="currentPage++" :disabled="currentPage === totalPages" class="btn">下一頁 →</button>
+              </div>
+            </div>
+
+            <!-- 深色動作列 -->
+            <div class="dock px-4 py-3 space-y-2 flex-shrink-0">
+              <div v-if="errorMessage" class="alert alert-danger">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{{ errorMessage }}</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 pr-3" style="border-right: 1px solid #2a2a2a">
+                  <p class="pd-label">已選</p>
+                  <p class="text-lg font-semibold tabular-nums leading-tight">{{ selectedCandidates.length }}<span class="pd-muted text-sm font-normal"> 位</span></p>
+                </div>
+                <div class="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scroll-thin py-1">
+                  <span v-if="selectedCandidates.length === 0" class="pd-muted text-sm">點選上方候選人卡片加入投票</span>
+                  <span v-for="candidate in selectedCandidates" :key="'sel-' + candidate.emp_id" class="dock-chip">
+                    <span class="avatar" :class="candidate.group === '2000' ? 'avatar-brand' : 'av-3000'">{{ candidate.name.charAt(0) }}</span>
+                    {{ candidate.name }}
+                    <span class="mono" style="color: #8f8f8f">{{ candidate.group }}</span>
+                    <button @click.stop="selectCandidate(candidate)" title="取消選擇">✕</button>
+                  </span>
+                  <button v-if="selectedCandidates.length > 0" @click="selectedCandidates = []" class="btn btn-on-dark flex-shrink-0" style="height: 30px; border-color: transparent">
+                    清空
+                  </button>
+                </div>
                 <button
                   @click="submitVote"
-                  :disabled="selectedCandidates.length === 0 || !canVote"
-                  class="flex-1 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-bold text-base shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="selectedCandidates.length === 0 || !status.can_vote || isSubmitting"
+                  class="btn btn-primary btn-submit flex-shrink-0"
                 >
-                  <svg
-                    class="w-5 h-5 inline mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
+                  {{ submitButtonText }}
+                  <svg v-if="selectedCandidates.length > 0 && status.can_vote && !isSubmitting" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6l6 6-6 6" />
                   </svg>
-                  {{ canVote ? (selectedCandidates.length > 0 ? `確認投票 (${selectedCandidates.length})` : '請選擇候選人') : '投票功能已鎖定' }}
                 </button>
-
-                <button
-                  @click="goToAdmin"
-                  class="px-5 py-3 bg-white border-2 border-amber-600 text-amber-600 rounded-xl font-bold text-base hover:bg-amber-600 hover:text-white transition-all shadow-md hover:shadow-lg"
-                >
-                  <svg
-                    class="w-5 h-5 inline mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                    />
-                  </svg>
-                  查看統計
-                </button>
-              </div>
-
-              <!-- 錯誤訊息 -->
-              <div
-                v-if="errorMessage"
-                class="bg-red-50 border-l-4 border-red-500 p-2.5 rounded-lg shadow-sm"
-              >
-                <div class="flex items-center">
-                  <svg
-                    class="w-5 h-5 text-red-500 mr-2 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <p class="text-red-800 font-semibold text-xs">{{ errorMessage }}</p>
-                </div>
               </div>
             </div>
-          </div>
-          <!-- 右側結束 -->
-        </div>
-      </div>
+          </section>
+        </main>
+      </template>
     </div>
 
     <script>
+      // 後端位址：預設與網頁同一台主機的 5000 port
+      const API_BASE = window.API_BASE || `http://${location.hostname || '127.0.0.1'}:5000`;
+
+      function getSession() {
+        try {
+          return {
+            token: sessionStorage.getItem('vote_token'),
+            user: JSON.parse(sessionStorage.getItem('vote_user') || 'null'),
+          };
+        } catch (e) {
+          return { token: null, user: null };
+        }
+      }
+
+      async function apiFetch(path, options = {}) {
+        const { token } = getSession();
+        const response = await fetch(`${API_BASE}${path}`, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token || ''}`,
+            ...(options.headers || {}),
+          },
+        });
+        if (response.status === 401) {
+          window.location.href = 'login.html';
+          throw new Error('登入已逾時');
+        }
+        const data = await response.json().catch(() => ({}));
+        return { ok: response.ok, status: response.status, data };
+      }
+
       const { createApp } = Vue;
 
       createApp({
         data() {
           return {
             isLoading: true,
-            empId: "",
-            currentVoter: {
-              emp_id: "",
-              name: "",
-              shift_type: "",
+            isSubmitting: false,
+            status: {
+              emp_id: '',
+              name: '',
+              group: '',
+              quota: {},
+              used: {},
+              remaining: {},
+              can_vote: false,
+              message: '',
+              voted_for_ids: [],
             },
             candidates: [],
-            filteredCandidates: [],
-            candidateSearch: "",
-            selectedCandidates: [], // 改為陣列以支持多選
-            targetShift: "",
-            errorMessage: "",
+            candidateSearch: '',
+            groupFilter: '',
+            selectedCandidates: [],
+            errorMessage: '',
             leaderboard: [],
             currentPage: 1,
-            itemsPerPage: 8,
-            canVote: true,
-            voteRestrictionMessage: "",
-            votesUsed: 0,
-            maxVotes: 1,
-            votedForIds: [],   // 🆕 新增:本月已投過的候選人工號清單
+            itemsPerPage: 24,
           };
         },
         computed: {
-          totalPages() {
-            return Math.ceil(
-              this.filteredCandidates.length / this.itemsPerPage
+          targetGroups() {
+            return Object.keys(this.status.quota).filter((g) => this.status.quota[g] > 0);
+          },
+          // 可切換的組別：還有票的組別；票全部用完時顯示全部組別供瀏覽
+          visibleGroups() {
+            const available = this.targetGroups.filter((g) => this.status.remaining[g] > 0);
+            return available.length > 0 ? available : this.targetGroups;
+          },
+          filteredCandidates() {
+            const search = this.candidateSearch.toLowerCase();
+            return this.candidates.filter(
+              (c) =>
+                c.group === this.groupFilter &&
+                (c.name.toLowerCase().includes(search) || c.emp_id.toLowerCase().includes(search))
             );
+          },
+          totalPages() {
+            return Math.ceil(this.filteredCandidates.length / this.itemsPerPage);
           },
           paginatedCandidates() {
             const start = (this.currentPage - 1) * this.itemsPerPage;
-            const end = start + this.itemsPerPage;
-            return this.filteredCandidates.slice(start, end);
+            return this.filteredCandidates.slice(start, start + this.itemsPerPage);
           },
-          remainingVotes() {
-            return this.maxVotes - this.votesUsed;
+          selectedByGroup() {
+            const count = {};
+            this.selectedCandidates.forEach((c) => (count[c.group] = (count[c.group] || 0) + 1));
+            return count;
           },
-          canSelectMore() {
-            return this.selectedCandidates.length < this.remainingVotes;
+          // 例：2000組 ✓ 已投完、3000組 已選 2/2
+          selectedSummary() {
+            return this.targetGroups
+              .map((g) => {
+                const remaining = this.status.remaining[g] || 0;
+                if (remaining === 0) return `${g}組 ✓ 已投完`;
+                return `${g}組 已選 ${this.selectedByGroup[g] || 0}/${remaining}`;
+              })
+              .join('、');
           },
-          selectedCount() {
-            return this.selectedCandidates.length;
+          submitButtonText() {
+            if (!this.status.can_vote) return '投票功能已鎖定';
+            if (this.isSubmitting) return '送出中...';
+            return this.selectedCandidates.length > 0 ? `確認投票 (${this.selectedCandidates.length})` : '請選擇候選人';
           },
-          displayTargetShift() {
-            // targetShift 原始值仍是 'RR'/'輪班'（因來自 check_status API 的 shift_type）
-            // 但為了安全，也支援新值
-            const map = { 'RR': '2000', '輪班': '3000', '2000': '2000', '3000': '3000' };
-            return map[this.targetShift] || this.targetShift;
-          }
         },
         watch: {
-          candidateSearch(val) {
-            const search = val.toLowerCase();
-            this.filteredCandidates = this.candidates.filter(
-              (c) =>
-                c.name.toLowerCase().includes(search) ||
-                c.emp_id.toLowerCase().includes(search)
-            );
+          candidateSearch() {
             this.currentPage = 1;
-            if (this.canVote) {
-              this.selectedCandidates = [];
-            }
+          },
+          groupFilter() {
+            this.currentPage = 1;
+            this.candidateSearch = '';
           },
         },
-
         async mounted() {
-          console.log('=== Vue mounted 開始 ===');
-          const urlParams = new URLSearchParams(window.location.search);
-          const empId = urlParams.get("emp_id");
-
-          console.log('URL 參數 emp_id:', empId);
-
-          if (!empId) {
-            console.error('❌ 沒有 emp_id 參數，跳轉到登入頁');
-            window.location.href = "login.html";
-            return;
-          }
-
-          this.empId = empId;
-          console.log('設置 this.empId:', this.empId);
-          
-          console.log('開始執行 loadData...');
-          await this.loadData();
-          console.log('loadData 執行完成');
-          console.log('Vue 已掛載，currentVoter:', this.currentVoter);
-        },
-
-        methods: {
-          // 月度投票輔助函數
-          getCurrentYearMonth() {
-            const now = new Date();
-            return { year: now.getFullYear(), month: now.getMonth() + 1 };
-          },
-          
-          // async loadData() {
-          //   const empId = this.empId.toUpperCase();
-          //   console.log('=== loadData 開始 ===');
-          //   console.log('empId:', empId);
-
-          //   try {
-          //     const { year, month } = this.getCurrentYearMonth();
-          //     console.log('查詢年月:', year, month);
-              
-          //     const statusUrl = `http://127.0.0.1:5000/api/check_status/${empId}?year=${year}&month=${month}`;
-          //     console.log('請求 URL:', statusUrl);
-              
-          //     const statusResponse = await fetch(statusUrl);
-          //     console.log('狀態響應:', statusResponse.status, statusResponse.ok);
-              
-          //     const statusData = await statusResponse.json();
-          //     console.log('狀態數據:', statusData);
-
-          //     if (!statusResponse.ok) {
-          //       console.error('❌ 狀態檢查失敗，跳轉到登入頁');
-          //       window.location.href = "login.html";
-          //       return;
-          //     }
-
-          //     console.log('設置 currentVoter...');
-          //     this.currentVoter = {
-          //       emp_id: empId,
-          //       name: statusData.name,
-          //       shift_type: statusData.shift_type,
-          //     };
-          //     console.log('currentVoter 已設置:', this.currentVoter);
-              
-          //     this.targetShift = statusData.shift_type === "2000" ? "3000" : "2000";
-          //     console.log('目標班別:', this.targetShift);
-
-          //     const { year: year2, month: month2 } = this.getCurrentYearMonth();
-          //     const empResponse = await fetch(
-          //       `http://127.0.0.1:5000/api/employees?year=${year2}&month=${month2}`
-          //     );
-          //     const employees = await empResponse.json();
-          //     console.log('員工總數:', employees.length);
-              
-          //     this.candidates = employees.filter(
-          //       (e) => e.shift_type === this.targetShift
-          //     );
-          //     console.log('候選人數量:', this.candidates.length);
-              
-          //     this.filteredCandidates = this.candidates;
-
-          //     if (statusData.can_vote) {
-          //       this.canVote = true;
-          //       this.voteRestrictionMessage = "";
-          //       this.votesUsed = statusData.votes_used || 0;
-          //       this.maxVotes = statusData.max_votes || 1;
-          //       console.log('✅ 可以投票，已用:', this.votesUsed, '配額:', this.maxVotes);
-          //     } else {
-          //       this.canVote = false;
-          //       this.voteRestrictionMessage =
-          //         statusData.message || "投票功能暫時無法使用";
-          //       this.votesUsed = statusData.votes_used || 0;
-          //       this.maxVotes = statusData.max_votes || 1;
-          //       console.log('❌ 無法投票:', this.voteRestrictionMessage);
-          //     }
-
-          //     await this.loadStatistics();
-          //     this.isLoading = false;
-          //     console.log('=== loadData 完成 ===');
-          //   } catch (error) {
-          //     console.error("❌ loadData 失敗:", error);
-          //     console.error("錯誤堆疊:", error.stack);
-          //     alert('載入失敗：' + error.message + '\n即將返回登入頁');
-          //     window.location.href = "login.html";
-          //   }
-          // },
-
-         async loadData() {
-            const empId = this.empId.toUpperCase();
-            console.log('=== loadData 開始 ===');
-            console.log('empId:', empId);
-
-            try {
-              const { year, month } = this.getCurrentYearMonth();
-              console.log('查詢年月:', year, month);
-
-              const statusUrl = `http://127.0.0.1:5000/api/check_status/${empId}?year=${year}&month=${month}`;
-              console.log('請求 URL:', statusUrl);
-
-              const statusResponse = await fetch(statusUrl);
-              console.log('狀態響應:', statusResponse.status, statusResponse.ok);
-
-              const statusData = await statusResponse.json();
-              console.log('狀態數據:', statusData);
-
-              if (!statusResponse.ok) {
-                console.error('❌ 狀態檢查失敗，跳轉到登入頁');
-                window.location.href = "login.html";
-                return;
-              }
-
-              console.log('設置 currentVoter...');
-              this.currentVoter = {
-                emp_id: empId,
-                name: statusData.name,
-                shift_type: statusData.shift_type,
-              };
-              console.log('currentVoter 已設置:', this.currentVoter);
-
-              this.targetShift = statusData.shift_type === "2000" ? "3000" : "2000";
-              console.log('目標班別:', this.targetShift);
-
-              const { year: year2, month: month2 } = this.getCurrentYearMonth();
-              const empResponse = await fetch(
-                `http://127.0.0.1:5000/api/employees?year=${year2}&month=${month2}`
-              );
-              const employees = await empResponse.json();
-              console.log('員工總數:', employees.length);
-
-              this.candidates = employees.filter(
-                (e) => e.shift_type === this.targetShift
-              );
-              console.log('候選人數量:', this.candidates.length);
-
-              this.filteredCandidates = this.candidates;
-
-              // 🆕 儲存本月已投過的候選人清單(後端新回傳的欄位)
-              this.votedForIds = statusData.voted_for_ids || [];
-              console.log('📋 本月已投過:', this.votedForIds);
-
-              if (statusData.can_vote) {
-                this.canVote = true;
-                this.voteRestrictionMessage = "";
-                this.votesUsed = statusData.votes_used || 0;
-                this.maxVotes = statusData.max_votes || 1;
-                console.log('✅ 可以投票，已用:', this.votesUsed, '配額:', this.maxVotes);
-              } else {
-                this.canVote = false;
-                this.voteRestrictionMessage =
-                  statusData.message || "投票功能暫時無法使用";
-                this.votesUsed = statusData.votes_used || 0;
-                this.maxVotes = statusData.max_votes || 1;
-                console.log('❌ 無法投票:', this.voteRestrictionMessage);
-              }
-
-              await this.loadStatistics();
-              this.isLoading = false;
-              console.log('=== loadData 完成 ===');
-            } catch (error) {
-              console.error("❌ loadData 失敗:", error);
-              console.error("錯誤堆疊:", error.stack);
-              alert('載入失敗：' + error.message + '\n即將返回登入頁');
-              window.location.href = "login.html";
-            }
-          }, 
-
-          logout() {
-            if (confirm("確定要登出嗎?")) {
-              window.location.href = "login.html";
-            }
-          },
-
-        goToAdmin() {
-          console.log('=== 點擊查看統計按鈕 ===');
-          console.log('1. this.empId:', this.empId);
-          console.log('2. this.currentVoter:', this.currentVoter);
-          
-          // 優先使用 currentVoter.emp_id，如果沒有就用 this.empId
-          const empId = this.currentVoter?.emp_id || this.empId;
-          console.log('3. 使用的 empId:', empId);
-          
-          if (!empId) {
-            console.error('❌ 無法獲取 emp_id');
-            alert('系統錯誤：無法獲取用戶資訊，請重新登入');
+          const { token, user } = getSession();
+          if (!token || !user) {
             window.location.href = 'login.html';
             return;
           }
-          
-          const targetUrl = `admin_panel.html?emp_id=${empId}`;
-          console.log('4. 跳轉目標:', targetUrl);
-          console.log('5. 執行跳轉...');
-          
-          window.location.href = targetUrl;
+          if (!user.in_roster) {
+            // 不在名單內的管理員只能使用後台
+            window.location.href = 'admin_panel.html';
+            return;
+          }
+          await this.loadData();
         },
+        methods: {
+          groupBadge(group) {
+            return group === '2000' ? 'badge badge-2000' : 'badge badge-3000';
+          },
+          isSelected(candidate) {
+            return this.selectedCandidates.some((c) => c.emp_id === candidate.emp_id);
+          },
+          isVoted(candidate) {
+            return this.status.voted_for_ids.includes(candidate.emp_id);
+          },
+          candidateClass(candidate) {
+            if (!this.status.can_vote) return 'disabled';
+            if (this.isVoted(candidate)) return 'disabled';
+            if (this.isSelected(candidate)) return 'clickable selected';
+            return 'clickable';
+          },
 
-          // selectCandidate(candidate) {
-          //   if (!this.canVote) return;
-            
-          //   const index = this.selectedCandidates.findIndex(c => c.emp_id === candidate.emp_id);
-            
-          //   if (index > -1) {
-          //     // 如果已經選擇，則取消選擇
-          //     this.selectedCandidates.splice(index, 1);
-          //     this.errorMessage = '';
-          //   } else {
-          //     // 如果未選擇，檢查是否還能選擇更多
-          //     if (this.canSelectMore) {
-          //       this.selectedCandidates.push(candidate);
-          //       this.errorMessage = '';
-          //     } else {
-          //       this.errorMessage = `最多只能選擇 ${this.remainingVotes} 位候選人`;
-          //       setTimeout(() => {
-          //         this.errorMessage = '';
-          //       }, 3000);
-          //     }
-          //   }
-          // },
+          // 切換組別時保留已選的候選人，可分開投或兩組一起投
+          switchGroup(g) {
+            this.errorMessage = '';
+            this.groupFilter = g;
+          },
+
+          // preferGroup：重新載入後優先停留的組別（已投完則自動切到其他組）
+          async loadData(preferGroup = null) {
+            const { user } = getSession();
+            try {
+              const { ok, data } = await apiFetch(`/api/candidates/${encodeURIComponent(user.emp_id)}`);
+              if (!ok) throw new Error(data.error || '載入失敗');
+
+              this.status = data.voter_info;
+              this.candidates = data.candidates;
+              this.selectedCandidates = [];
+
+              const want = preferGroup || this.groupFilter;
+              this.groupFilter = this.visibleGroups.includes(want) ? want : this.visibleGroups[0] || '';
+
+              await this.loadStatistics();
+              this.isLoading = false;
+            } catch (error) {
+              console.error('loadData 失敗:', error);
+              await Swal.fire({ title: '載入失敗', text: error.message, icon: 'error', confirmButtonText: '返回登入頁' });
+              window.location.href = 'login.html';
+            }
+          },
+
+          logout() {
+            if (confirm('確定要登出嗎?')) {
+              window.location.href = 'login.html';
+            }
+          },
+
+          goToAdmin() {
+            window.location.href = 'admin_panel.html';
+          },
+
+          showError(msg) {
+            this.errorMessage = msg;
+            setTimeout(() => {
+              if (this.errorMessage === msg) this.errorMessage = '';
+            }, 3000);
+          },
+
           selectCandidate(candidate) {
-            if (!this.canVote) return;
+            if (!this.status.can_vote) return;
 
-            // 🆕 檢查是否已投過此候選人(本月)
-            if (this.votedForIds.includes(candidate.emp_id)) {
+            if (this.isVoted(candidate)) {
               Swal.fire({
-                title: "⚠️ 已投過此候選人",
+                title: '⚠️ 已投過此候選人',
                 html: `您本月已經投過 <strong>${candidate.name} (${candidate.emp_id})</strong><br><br>無法重複投票,請選擇其他候選人`,
-                icon: "warning",
-                confirmButtonColor: "#d97706",
-                confirmButtonText: "知道了",
-                customClass: {
-                  popup: "rounded-2xl",
-                  confirmButton: "rounded-lg px-6 py-3",
-                },
+                icon: 'warning',
+                confirmButtonColor: '#d97706',
+                confirmButtonText: '知道了',
+                customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-6 py-3' },
               });
               return;
             }
 
-            const index = this.selectedCandidates.findIndex(c => c.emp_id === candidate.emp_id);
-
+            const index = this.selectedCandidates.findIndex((c) => c.emp_id === candidate.emp_id);
             if (index > -1) {
-              // 如果已經選擇，則取消選擇
               this.selectedCandidates.splice(index, 1);
               this.errorMessage = '';
-            } else {
-              // 如果未選擇，檢查是否還能選擇更多
-              if (this.canSelectMore) {
-                this.selectedCandidates.push(candidate);
-                this.errorMessage = '';
-              } else {
-                this.errorMessage = `最多只能選擇 ${this.remainingVotes} 位候選人`;
-                setTimeout(() => {
-                  this.errorMessage = '';
-                }, 3000);
-              }
+              return;
             }
+
+            const g = candidate.group;
+            const remaining = this.status.remaining[g] || 0;
+            if ((this.selectedByGroup[g] || 0) >= remaining) {
+              this.showError(remaining === 0 ? `${g}組的票已投完` : `${g}組已選滿 ${remaining} 位，請先取消其他人再選`);
+              return;
+            }
+            this.selectedCandidates.push(candidate);
+            this.errorMessage = '';
           },
 
-          // async submitVote() {
-          //   // 檢查日期限制（每月10-18號才能投票）
-          //   const today = new Date().getDate();
-          //   if (today < 10 || today > 18) {
-          //     Swal.fire({
-          //       title: "⏳ 投票期間限制",
-          //       html: `投票期間為每月 <strong>10-18 號</strong><br><br>今天是 <strong class="text-2xl text-red-600">${today} 號</strong><br><br>請於投票期間內再來投票`,
-          //       icon: "warning",
-          //       confirmButtonColor: "#d97706",
-          //       confirmButtonText: "知道了",
-          //       customClass: {
-          //         popup: "rounded-2xl",
-          //         confirmButton: "rounded-lg px-6 py-3",
-          //       },
-          //     });
-          //     return;
-          //   }
-          //   if (!this.canVote) {
-          //     this.errorMessage = this.voteRestrictionMessage;
-          //     return;
-          //   }
-
-          //   if (this.selectedCandidates.length === 0) {
-          //     this.errorMessage = "請至少選擇一位候選人";
-          //     return;
-          //   }
-
-          //   // 生成候選人名單的 HTML
-          //   const candidatesList = this.selectedCandidates
-          //     .map((c, i) => `${i + 1}. <strong>${c.name}</strong> (${c.emp_id})`)
-          //     .join('<br>');
-
-          //   const result = await Swal.fire({
-          //     title: "確認投票",
-          //     html: `確定要投票給以下 <strong class="text-2xl text-amber-600">${this.selectedCandidates.length}</strong> 位候選人嗎?<br><br>
-          //           <div class="text-left bg-amber-50 p-4 rounded-lg my-3">
-          //             ${candidatesList}
-          //           </div>
-          //           <span class="text-red-600">⚠️ 投票後無法修改!</span>`,
-          //     icon: "question",
-          //     showCancelButton: true,
-          //     confirmButtonColor: "#4F46E5",
-          //     cancelButtonColor: "#6B7280",
-          //     confirmButtonText: "確認投票",
-          //     cancelButtonText: "取消",
-          //     customClass: {
-          //       popup: "rounded-2xl",
-          //       confirmButton: "rounded-lg px-6 py-3",
-          //       cancelButton: "rounded-lg px-6 py-3",
-          //     },
-          //   });
-
-          //   if (!result.isConfirmed) {
-          //     return;
-          //   }
-
-          //   try {
-          //     const { year, month } = this.getCurrentYearMonth();
-          //     const response = await fetch("http://127.0.0.1:5000/api/vote", {
-          //       method: "POST",
-          //       headers: { "Content-Type": "application/json" },
-          //       body: JSON.stringify({
-          //         voter_emp_id: this.currentVoter.emp_id,
-          //         voted_for_emp_ids: this.selectedCandidates.map(c => c.emp_id),
-          //         year: year,
-          //         month: month,
-          //       }),
-          //     });
-
-          //     const data = await response.json();
-
-          //     if (response.ok) {
-          //       // 直接使用後端返回的票數
-          //       this.votesUsed = data.votes_used;
-          //       this.maxVotes = data.max_votes;
-          //       const remainingVotes = this.maxVotes - this.votesUsed;
-                
-          //       console.log('投票成功：votes_used:', this.votesUsed, 'max_votes:', this.maxVotes, 'remaining:', remainingVotes);
-                
-          //       // 顯示投票成功訊息
-          //       await Swal.fire({
-          //         title: "✅ 投票成功!",
-          //         html: `感謝您的參與<br><br>您已成功投出 <strong class="text-amber-600">${this.selectedCandidates.length}</strong> 票<br>
-          //               本月已使用 <strong class="text-amber-600">${this.votesUsed}/${this.maxVotes}</strong> 票`,
-          //         icon: "success",
-          //         timer: 2000,
-          //         showConfirmButton: false,
-          //         customClass: {
-          //           popup: "rounded-2xl",
-          //         },
-          //       });
-
-          //       // 清空選擇
-          //       this.selectedCandidates = [];
-          //       this.errorMessage = "";
-
-          //       // 檢查是否還有剩餘票數
-          //       if (remainingVotes > 0) {
-          //         // ✅ 改用 preConfirm 確保跳轉執行
-          //         const continueResult = await Swal.fire({
-          //           title: "📊 還有剩餘票數",
-          //           html: `您本月還有 <strong class="text-2xl text-amber-600">${remainingVotes}</strong> 票可以投<br><br>
-          //                 <div class="text-gray-600 text-sm mt-3">
-          //                   <p>💡 您可以選擇：</p>
-          //                   <p class="mt-2">• <strong>查看統計</strong>：前往統計頁面查看投票結果</p>
-          //                   <p>• <strong>繼續投票</strong>：為其他候選人投票</p>
-          //                 </div>`,
-          //           icon: "info",
-          //           showCancelButton: true,
-          //           showDenyButton: false,
-          //           confirmButtonColor: "#f59e0b",
-          //           cancelButtonColor: "#6366f1",
-          //           confirmButtonText: "📊 查看統計",
-          //           cancelButtonText: "🗳️ 繼續投票",
-          //           allowOutsideClick: false,
-          //           allowEscapeKey: false,
-          //           customClass: {
-          //             popup: "rounded-2xl",
-          //             confirmButton: "rounded-lg px-6 py-3",
-          //             cancelButton: "rounded-lg px-6 py-3",
-          //           },
-          //         });
-
-          //         console.log('用戶選擇結果:', continueResult);
-
-          //         // ✅ 明確處理兩種情況
-          //         if (continueResult.isConfirmed) {
-          //           // 查看統計 - 立即跳轉
-          //           console.log('=== 用戶選擇查看統計 ===');
-          //           const targetUrl = `admin_panel.html?emp_id=${this.currentVoter.emp_id}`;
-          //           console.log('跳轉目標:', targetUrl);
-          //           setTimeout(() => {
-          //             window.location.href = targetUrl;
-          //           }, 300);
-          //         } else {
-          //           // 繼續投票
-          //           console.log('=== 用戶選擇繼續投票 ===');
-          //           await this.loadData();
-          //           this.canVote = true;
-                    
-          //           Swal.fire({
-          //             title: "繼續投票",
-          //             text: `請選擇您要投票的候選人 (剩餘 ${remainingVotes} 票)`,
-          //             icon: "success",
-          //             timer: 1500,
-          //             showConfirmButton: false,
-          //             customClass: {
-          //               popup: "rounded-2xl",
-          //             },
-          //           });
-          //         }
-          //       } else {
-          //         // 已用完所有票數，前往統計頁面
-          //         console.log('=== 所有票數已用完 ===');
-          //         await Swal.fire({
-          //           title: "🎉 已投完所有票數!",
-          //           text: "您本月的投票配額已用完，即將前往統計頁面",
-          //           icon: "success",
-          //           timer: 2000,
-          //           showConfirmButton: false,
-          //           allowOutsideClick: false,
-          //           customClass: {
-          //             popup: "rounded-2xl",
-          //           },
-          //         });
-                  
-          //         // 強制跳轉
-          //         setTimeout(() => {
-          //           const targetUrl = `admin_panel.html?emp_id=${this.currentVoter.emp_id}`;
-          //           console.log('強制跳轉到:', targetUrl);
-          //           window.location.href = targetUrl;
-          //         }, 300);
-          //       }
-          //     } else {
-          //       this.errorMessage = data.error;
-
-          //       Swal.fire({
-          //         title: "投票失敗",
-          //         text: data.error,
-          //         icon: "error",
-          //         confirmButtonColor: "#4F46E5",
-          //         confirmButtonText: "確定",
-          //         customClass: {
-          //           popup: "rounded-2xl",
-          //           confirmButton: "rounded-lg px-6 py-3",
-          //         },
-          //       });
-          //     }
-          //   } catch (error) {
-          //     console.error("投票錯誤:", error);
-          //     this.errorMessage = "投票失敗,請稍後再試";
-
-          //     Swal.fire({
-          //       title: "系統錯誤",
-          //       text: "投票失敗,請稍後再試",
-          //       icon: "error",
-          //       confirmButtonColor: "#4F46E5",
-          //       confirmButtonText: "確定",
-          //       customClass: {
-          //         popup: "rounded-2xl",
-          //         confirmButton: "rounded-lg px-6 py-3",
-          //       },
-          //     });
-          //   }
-          // },
-
           async submitVote() {
-            // 檢查日期限制（每月10-18號才能投票）
+            // 投票期間限制（每月10-18號）— 目前停用，需要時取消註解
             // const today = new Date().getDate();
             // if (today < 10 || today > 18) {
-            //   Swal.fire({
-            //     title: "⏳ 投票期間限制",
-            //     html: `投票期間為每月 <strong>10-18 號</strong><br><br>今天是 <strong class="text-2xl text-red-600">${today} 號</strong><br><br>請於投票期間內再來投票`,
-            //     icon: "warning",
-            //     confirmButtonColor: "#d97706",
-            //     confirmButtonText: "知道了",
-            //     customClass: {
-            //       popup: "rounded-2xl",
-            //       confirmButton: "rounded-lg px-6 py-3",
-            //     },
-            //   });
-            //   return;
-            // }
-            // if (!this.canVote) {
-            //   this.errorMessage = this.voteRestrictionMessage;
+            //   Swal.fire({ title: '⏳ 投票期間限制', html: `投票期間為每月 <strong>10-18 號</strong>`, icon: 'warning' });
             //   return;
             // }
 
             if (this.selectedCandidates.length === 0) {
-              this.errorMessage = "請至少選擇一位候選人";
+              this.errorMessage = '請至少選擇一位候選人';
               return;
             }
 
-            // 🆕 送出前先在前端做一次重複檢查(雙保險)
-            const selectedIds = this.selectedCandidates.map(c => c.emp_id);
-            const dupInThisBatch = selectedIds.filter((id, idx) => selectedIds.indexOf(id) !== idx);
-            if (dupInThisBatch.length > 0) {
-              await Swal.fire({
-                title: "❌ 有重複的候選人",
-                text: "本次選擇中有重複的候選人,請重新選擇",
-                icon: "error",
-                confirmButtonColor: "#dc2626",
-                confirmButtonText: "重新選擇",
-                customClass: { popup: "rounded-2xl", confirmButton: "rounded-lg px-6 py-3" },
-              });
-              this.selectedCandidates = [];
-              return;
-            }
-            const dupWithHistory = selectedIds.filter(id => this.votedForIds.includes(id));
-            if (dupWithHistory.length > 0) {
-              const dupNames = this.selectedCandidates
-                .filter(c => dupWithHistory.includes(c.emp_id))
-                .map(c => `${c.name}(${c.emp_id})`)
-                .join('、');
-              await Swal.fire({
-                title: "❌ 投票已取消",
-                html: `您本月已投過:<strong>${dupNames}</strong><br><br>無法重複投票,本次投票已取消,請重新選擇其他候選人`,
-                icon: "error",
-                confirmButtonColor: "#dc2626",
-                confirmButtonText: "重新選擇",
-                customClass: { popup: "rounded-2xl", confirmButton: "rounded-lg px-6 py-3" },
-              });
-              this.selectedCandidates = [];
-              await this.loadData();
-              return;
-            }
-
-            // 生成候選人名單的 HTML
             const candidatesList = this.selectedCandidates
-              .map((c, i) => `${i + 1}. <strong>${c.name}</strong> (${c.emp_id})`)
+              .map((c, i) => `${i + 1}. <strong>${c.name}</strong> (${c.emp_id}) · ${c.group}組`)
               .join('<br>');
 
             const result = await Swal.fire({
-              title: "確認投票",
-              html: `確定要投票給以下 <strong class="text-2xl text-amber-600">${this.selectedCandidates.length}</strong> 位候選人嗎?<br><br>
-                    <div class="text-left bg-amber-50 p-4 rounded-lg my-3">
-                      ${candidatesList}
-                    </div>
-                    <span class="text-red-600">⚠️ 投票後無法修改!</span>`,
-              icon: "question",
+              title: '確認投票',
+              html: `確定要投票給以下 <strong>${this.selectedCandidates.length}</strong> 位候選人嗎?<br><br>
+                    <div class="swal-list">${candidatesList}</div>
+                    <span class="text-danger">投票後無法修改</span>`,
+              icon: 'question',
               showCancelButton: true,
-              confirmButtonColor: "#4F46E5",
-              cancelButtonColor: "#6B7280",
-              confirmButtonText: "確認投票",
-              cancelButtonText: "取消",
-              customClass: {
-                popup: "rounded-2xl",
-                confirmButton: "rounded-lg px-6 py-3",
-                cancelButton: "rounded-lg px-6 py-3",
-              },
+              confirmButtonColor: '#4F46E5',
+              cancelButtonColor: '#6B7280',
+              confirmButtonText: '確認投票',
+              cancelButtonText: '取消',
+              customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-6 py-3', cancelButton: 'rounded-lg px-6 py-3' },
             });
+            if (!result.isConfirmed) return;
 
-            if (!result.isConfirmed) {
-              return;
-            }
-
+            this.isSubmitting = true;
             try {
-              const { year, month } = this.getCurrentYearMonth();
-              const response = await fetch("http://127.0.0.1:5000/api/vote", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  voter_emp_id: this.currentVoter.emp_id,
-                  voted_for_emp_ids: this.selectedCandidates.map(c => c.emp_id),
-                  year: year,
-                  month: month,
-                }),
+              const { ok, data } = await apiFetch('/api/vote', {
+                method: 'POST',
+                body: JSON.stringify({ voted_for_emp_ids: this.selectedCandidates.map((c) => c.emp_id) }),
               });
 
-              const data = await response.json();
-
-              if (response.ok) {
-                // 直接使用後端返回的票數
-                this.votesUsed = data.votes_used;
-                this.maxVotes = data.max_votes;
-                const remainingVotes = this.maxVotes - this.votesUsed;
-
-                console.log('投票成功：votes_used:', this.votesUsed, 'max_votes:', this.maxVotes, 'remaining:', remainingVotes);
-
-                // 顯示投票成功訊息
+              if (!ok) {
                 await Swal.fire({
-                  title: "✅ 投票成功!",
-                  html: `感謝您的參與<br><br>您已成功投出 <strong class="text-amber-600">${this.selectedCandidates.length}</strong> 票<br>
-                        本月已使用 <strong class="text-amber-600">${this.votesUsed}/${this.maxVotes}</strong> 票`,
-                  icon: "success",
-                  timer: 2000,
-                  showConfirmButton: false,
-                  customClass: {
-                    popup: "rounded-2xl",
-                  },
+                  title: data.duplicates ? '❌ 投票已取消' : '投票失敗',
+                  html: data.duplicates ? `${data.error}<br><br>本次投票已<strong>整筆取消</strong>` : data.error || '投票失敗',
+                  icon: 'error',
+                  confirmButtonColor: '#dc2626',
+                  confirmButtonText: '確定',
+                  customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-6 py-3' },
                 });
+                await this.loadData();
+                return;
+              }
 
-                // 清空選擇
-                this.selectedCandidates = [];
-                this.errorMessage = "";
+              const voted = this.selectedCandidates.length;
+              const votedGroups = [...new Set(this.selectedCandidates.map((c) => c.group))];
+              this.status = data.status;
+              this.selectedCandidates = [];
+              this.errorMessage = '';
 
-                // 檢查是否還有剩餘票數
-                if (remainingVotes > 0) {
-                  // ✅ 改用 preConfirm 確保跳轉執行
-                  const continueResult = await Swal.fire({
-                    title: "📊 還有剩餘票數",
-                    html: `您本月還有 <strong class="text-2xl text-amber-600">${remainingVotes}</strong> 票可以投<br><br>
-                          <div class="text-gray-600 text-sm mt-3">
-                            <p>💡 您可以選擇：</p>
-                            <p class="mt-2">• <strong>查看統計</strong>：前往統計頁面查看投票結果</p>
-                            <p>• <strong>繼續投票</strong>：為其他候選人投票</p>
-                          </div>`,
-                    icon: "info",
-                    showCancelButton: true,
-                    showDenyButton: false,
-                    confirmButtonColor: "#f59e0b",
-                    cancelButtonColor: "#6366f1",
-                    confirmButtonText: "📊 查看統計",
-                    cancelButtonText: "🗳️ 繼續投票",
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    customClass: {
-                      popup: "rounded-2xl",
-                      confirmButton: "rounded-lg px-6 py-3",
-                      cancelButton: "rounded-lg px-6 py-3",
-                    },
-                  });
+              await Swal.fire({
+                title: '✅ 投票成功!',
+                html: `感謝您的參與<br><br>您已成功投出 <strong>${voted}</strong> 票<br>
+                      本月已使用 <strong>${data.votes_used}/${data.max_votes}</strong> 票`,
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false,
+                customClass: { popup: 'rounded-2xl' },
+              });
 
-                  console.log('用戶選擇結果:', continueResult);
+              if (this.status.can_vote) {
+                // 判斷剛剛投的組別哪些已投完；繼續投票時隱藏已投完的組別，切到還有票的組別
+                const doneGroups = votedGroups.filter((g) => (this.status.remaining[g] || 0) === 0);
+                const openGroups = this.targetGroups.filter((g) => this.status.remaining[g] > 0);
+                const nextGroup = openGroups.includes(this.groupFilter) ? this.groupFilter : openGroups[0];
+                const remainText = openGroups
+                  .map((g) => `<strong>${g}組 ${this.status.remaining[g]}</strong> 票`)
+                  .join('、');
 
-                  // ✅ 明確處理兩種情況
-                  if (continueResult.isConfirmed) {
-                    // 查看統計 - 立即跳轉
-                    console.log('=== 用戶選擇查看統計 ===');
-                    const targetUrl = `admin_panel.html?emp_id=${this.currentVoter.emp_id}`;
-                    console.log('跳轉目標:', targetUrl);
-                    setTimeout(() => {
-                      window.location.href = targetUrl;
-                    }, 300);
-                  } else {
-                    // 繼續投票
-                    console.log('=== 用戶選擇繼續投票 ===');
-                    await this.loadData();  // 🆕 這裡會自動更新 votedForIds
-                    this.canVote = true;
-
-                    Swal.fire({
-                      title: "繼續投票",
-                      text: `請選擇您要投票的候選人 (剩餘 ${remainingVotes} 票)`,
-                      icon: "success",
-                      timer: 1500,
-                      showConfirmButton: false,
-                      customClass: {
-                        popup: "rounded-2xl",
-                      },
-                    });
-                  }
+                const next = await Swal.fire({
+                  title: doneGroups.length ? `✅ ${doneGroups.map((g) => g + '組').join('、')} 已投完` : '📊 還有剩餘票數',
+                  html: `您還可以投：${remainText}<br><br>是否要繼續投票?`,
+                  icon: 'info',
+                  showCancelButton: true,
+                  confirmButtonColor: '#f59e0b',
+                  cancelButtonColor: '#6366f1',
+                  confirmButtonText: `🗳️ 繼續投 ${nextGroup}組`,
+                  cancelButtonText: '📊 查看統計',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false,
+                  customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-6 py-3', cancelButton: 'rounded-lg px-6 py-3' },
+                });
+                if (next.isConfirmed) {
+                  await this.loadData(nextGroup);
                 } else {
-                  // 已用完所有票數，前往統計頁面
-                  console.log('=== 所有票數已用完 ===');
-                  await Swal.fire({
-                    title: "🎉 已投完所有票數!",
-                    text: "您本月的投票配額已用完，即將前往統計頁面",
-                    icon: "success",
-                    timer: 2000,
-                    showConfirmButton: false,
-                    allowOutsideClick: false,
-                    customClass: {
-                      popup: "rounded-2xl",
-                    },
-                  });
-
-                  // 強制跳轉
-                  setTimeout(() => {
-                    const targetUrl = `admin_panel.html?emp_id=${this.currentVoter.emp_id}`;
-                    console.log('強制跳轉到:', targetUrl);
-                    window.location.href = targetUrl;
-                  }, 300);
+                  this.goToAdmin();
                 }
               } else {
-                // 🆕 若後端判定為重複投票,整筆取消、清空選擇並重載資料
-                if (data.duplicates && data.duplicates.length > 0) {
-                  await Swal.fire({
-                    title: "❌ 投票已取消",
-                    html: `${data.error}<br><br>本次投票已<strong>整筆取消</strong>,請重新選擇其他候選人`,
-                    icon: "error",
-                    confirmButtonColor: "#dc2626",
-                    confirmButtonText: "重新選擇",
-                    customClass: {
-                      popup: "rounded-2xl",
-                      confirmButton: "rounded-lg px-6 py-3",
-                    },
-                  });
-                  this.selectedCandidates = [];
-                  this.errorMessage = "";
-                  await this.loadData();  // 重新載入,更新 votedForIds
-                  return;
-                }
-
-                // 其他錯誤照原本方式顯示
-                this.errorMessage = data.error;
-                Swal.fire({
-                  title: "投票失敗",
-                  text: data.error,
-                  icon: "error",
-                  confirmButtonColor: "#4F46E5",
-                  confirmButtonText: "確定",
-                  customClass: {
-                    popup: "rounded-2xl",
-                    confirmButton: "rounded-lg px-6 py-3",
-                  },
+                await Swal.fire({
+                  title: '🎉 已投完所有票數!',
+                  text: '您本月的投票配額已用完，即將前往統計頁面',
+                  icon: 'success',
+                  timer: 2000,
+                  showConfirmButton: false,
+                  allowOutsideClick: false,
+                  customClass: { popup: 'rounded-2xl' },
                 });
+                this.goToAdmin();
               }
             } catch (error) {
-              console.error("投票錯誤:", error);
-              this.errorMessage = "投票失敗,請稍後再試";
-
-              Swal.fire({
-                title: "系統錯誤",
-                text: "投票失敗,請稍後再試",
-                icon: "error",
-                confirmButtonColor: "#4F46E5",
-                confirmButtonText: "確定",
-                customClass: {
-                  popup: "rounded-2xl",
-                  confirmButton: "rounded-lg px-6 py-3",
-                },
-              });
+              console.error('投票錯誤:', error);
+              this.errorMessage = '投票失敗,請稍後再試';
+            } finally {
+              this.isSubmitting = false;
             }
           },
 
           async loadStatistics() {
             try {
-              const response = await fetch(
-                "http://127.0.0.1:5000/api/statistics"
-              );
-              const data = await response.json();
-
-              // ✅ 顯示所有班別的 TOP 5，不做過濾
-              console.log('原始統計數據:', data.vote_stats);
-
-              // 直接取前 5 名，不分班別
-              this.leaderboard = data.vote_stats.slice(0, 5);
-              
-              console.log('排行榜 TOP 5 (所有班別):', this.leaderboard);
+              const { ok, data } = await apiFetch('/api/statistics');
+              this.leaderboard = ok ? data.vote_stats.slice(0, 5) : [];
             } catch (error) {
-              console.error("載入統計失敗", error);
+              console.error('載入統計失敗', error);
             }
-          }
-          // async loadStatistics() {
-          //   try {
-          //     const response = await fetch(
-          //       "http://127.0.0.1:5000/api/statistics"
-          //     );
-          //     const data = await response.json();
-
-          //     // 將targetShift轉換為後端使用的格式
-          //     const shiftMap = {
-          //       '2000': 'RR',
-          //       '3000': '輪班',
-          //       'RR': 'RR',
-          //       '輪班': '輪班'
-          //     };
-          //     const targetShiftFormatted = shiftMap[this.targetShift] || this.targetShift;
-              
-          //     console.log('過濾條件:', 'targetShift =', this.targetShift, '->', targetShiftFormatted);
-          //     console.log('原始統計數據:', data.vote_stats);
-
-          //     this.leaderboard = data.vote_stats
-          //       .filter((stat) => stat.shift_type === targetShiftFormatted)
-          //       .slice(0, 5);
-              
-          //     console.log('過濾後的排行榜:', this.leaderboard);
-          //   } catch (error) {
-          //     console.error("載入統計失敗", error);
-          //   }
-          // },
+          },
         },
-      }).mount("#app");
+      }).mount('#app');
     </script>
   </body>
 </html>
